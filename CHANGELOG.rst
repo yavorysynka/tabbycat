@@ -8,6 +8,7 @@ Change Log
 - Redesigned the core round workflow; splitting of the "Display Draw" and "Motions" actions into seperate pages to make for a more streamlined user experience
 - Added information about autosave status to the Allocations page
 - Added basic infrastructure for creating tabbycat translations
+- Added a 'Tabbykitten' Heroku setup that does not require debit/credit card verifications
 
 
 1.1.7
