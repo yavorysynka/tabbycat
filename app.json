@@ -19,15 +19,6 @@
     ],
     "success_url": "/start/",
     "scripts": {
-        "postdeploy": "kitten=`heroku config:get KITTEN` \
-                       && if [ $kitten = 'true' ]; \
-                       then \
-                        echo 'Skipping addons (Kitten setup)'; \
-                       else \
-                        echo 'Creating addons (Standard Setup)' && \
-                        heroku addons:create memcachier && \
-                        heroku addons:create papertrail && \
-                        heroku addons:create sendgrid:starter; \
-                       fi"
+        "postdeploy": "kitten=`heroku config:get KITTEN` && if [ $kitten = 'true' ]; then echo 'Skipping addons (Kitten setup)'; else echo 'Creating addons (Standard Setup)' && heroku addons:create memcachier && heroku addons:create papertrail && heroku addons:create sendgrid:starter; fi"
     }
 }
