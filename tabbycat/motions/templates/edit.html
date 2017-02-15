@@ -40,7 +40,7 @@
 {% block page-alerts %}
   {% if round.motion_set.all.count == 0 %}
     <div class="alert alert-danger">
-      Results cannot be entered without motions. Enter at least one motion below and then hit "Save Motions" (at the bottom of the page)
+      Results cannot be entered without motions. Enter at least one motion below and then hit "Save Motions".
     </div>
   {% endif %}
   {% if round.motions_released and not pref.public_motions %}
@@ -60,6 +60,9 @@
     <div class="panel panel-default">
       <ul class="list-group">
         {{ formset.management_form }}
+        <li class="list-group-item">
+          <input class="btn btn-success btn-block" type="submit" name="submit" value="Save Motions" />
+        </li>
         {% for form in formset %}
         <li class="list-group-item">
 

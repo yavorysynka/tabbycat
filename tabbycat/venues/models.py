@@ -6,10 +6,6 @@ from django.db import models
 class VenueGroup(models.Model):
     name = models.CharField(unique=True, max_length=200)
     short_name = models.CharField(max_length=25)
-    team_capacity = models.IntegerField(
-        blank=True,
-        null=True,
-        help_text="The greatest possible number of teams that can debate in this venue group")
 
     @property
     def divisions_count(self):
@@ -78,9 +74,9 @@ class VenueConstraintCategory(models.Model):
 class VenueConstraint(models.Model):
 
     SUBJECT_CONTENT_TYPE_CHOICES = models.Q(app_label='participants', model='team') | \
-        models.Q(app_label='participants', model='adjudicator') | \
-        models.Q(app_label='participants', model='institution') | \
-        models.Q(app_label='divisions', model='division')
+                                   models.Q(app_label='participants', model='adjudicator') | \
+                                   models.Q(app_label='participants', model='institution') | \
+                                   models.Q(app_label='divisions', model='division')
 
     category = models.ForeignKey(VenueConstraintCategory, models.CASCADE)
     priority = models.IntegerField()

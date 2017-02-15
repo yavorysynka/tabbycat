@@ -78,9 +78,7 @@ class AnorakTournamentDataImporter(BaseTournamentDataImporter):
         Each line has:
             name
         """
-        region_interpreter = make_interpreter(
-            tournament=self.tournament
-        )
+        region_interpreter = make_interpreter()
         return self._import(f, pm.Region, region_interpreter)
 
     def import_institutions(self, f, auto_create_regions=True):
@@ -94,8 +92,7 @@ class AnorakTournamentDataImporter(BaseTournamentDataImporter):
                 if not line.get('region'):
                     return None
                 return {
-                    'name': line['region'],
-                    'tournament': self.tournament,
+                    'name': line['region']
                 }
             counts, errors = self._import(f, pm.Region, region_interpreter,
                                           expect_unique=False)
@@ -115,7 +112,7 @@ class AnorakTournamentDataImporter(BaseTournamentDataImporter):
     def import_venue_groups(self, f):
         """Imports venue groups from a file.
         Each line has:
-            name, short_name[, team_capacity]
+            name, short_name
         """
         return self._import(f, vm.VenueGroup)
 

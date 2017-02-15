@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 PROHIBITED_TOURNAMENT_SLUGS = [
     'jet', 'database', 'admin', 'accounts',   # System
-    'start', 'create',  # Setup Wizards
+    'start', 'create', 'donations', 'load_demo', # Setup Wizards
     'draw', 'participants', 'favicon.ico',  # Cross-Tournament app's view roots
     't', '__debug__', 'static']  # Misc
 
@@ -423,3 +423,7 @@ class Round(models.Model):
     @property
     def motions_good_for_public(self):
         return self.motions_released or not self.motion_set.exists()
+
+    @cached_property
+    def billable_teams(self):
+        return self.tournament.team_set.count()
