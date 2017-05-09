@@ -13,14 +13,14 @@ from adjallocation.models import DebateAdjudicator
 from divisions.models import Division
 from participants.models import Adjudicator, Institution, Team
 from standings.teams import TeamStandingsGenerator
-from tournaments.mixins import CrossTournamentPageMixin, PublicTournamentPageMixin, RoundMixin, TournamentMixin
+from tournaments.mixins import CrossTournamentPageMixin, OptionalAssistantTournamentPageMixin, PublicTournamentPageMixin, RoundMixin, TournamentMixin
 from tournaments.models import Round
 from tournaments.utils import aff_name, get_position_name, neg_name
 from utils.mixins import CacheMixin, PostOnlyRedirectView, SuperuserRequiredMixin, VueTableTemplateView
 from utils.misc import reverse_round
 from utils.tables import TabbycatTableBuilder
 from venues.allocator import allocate_venues
-from venues.models import VenueConstraint, VenueGroup
+from venues.models import VenueCategory, VenueConstraint
 
 from .dbutils import delete_round_draw
 from .generator import DrawError
@@ -41,14 +41,16 @@ class BaseDrawTableView(RoundMixin, VueTableTemplateView):
         return 'Draw for %s' % self.get_round().name
 
     def get_page_emoji(self):
-        if self.get_round().draw_status == Round.STATUS_RELEASED:
+        if not self.get_round():
+            return None # Cross-Tournament pages
+        elif self.get_round().draw_status == Round.STATUS_RELEASED:
             return '👏'
         else:
             return '😴'
 
     def get_page_subtitle(self):
         round = self.get_round()
-        if round.starts_at:
+        if round and round.starts_at:
             return 'debates start at %s' % round.starts_at.strftime('%H:%M')
         else:
             return ''
@@ -57,10 +59,22 @@ class BaseDrawTableView(RoundMixin, VueTableTemplateView):
         kwargs['round'] = self.get_round()
         return super().get_context_data(**kwargs)
 
+    def get_draw(self):
+        round = self.get_round()
+        draw = round.debate_set_with_prefetches()
+        return draw
+
     def populate_table(self, draw, table, round, tournament):
+        if hasattr(self, 'cross_tournament') and self.cross_tournament is True:
+            table.add_tournament_column(d.round.tournament for d in draw) # For cross-tournament draws
+
+        if not round:
+            table.add_round_column(d.round for d in draw) # For mass draws
+
         table.add_debate_venue_columns(draw)
         table.add_team_columns([d.aff_team for d in draw], hide_institution=True, key=aff_name(tournament))
         table.add_team_columns([d.neg_team for d in draw], hide_institution=True, key=neg_name(tournament))
+
         if tournament.pref('enable_division_motions'):
             table.add_motion_column(d.division_motion for d in draw)
 
@@ -70,7 +84,7 @@ class BaseDrawTableView(RoundMixin, VueTableTemplateView):
     def get_table(self):
         tournament = self.get_tournament()
         round = self.get_round()
-        draw = round.debate_set_with_prefetches()
+        draw = self.get_draw()
         table = TabbycatTableBuilder(view=self, sort_key=self.sort_key, popovers=self.popovers)
         self.populate_table(draw, table, round, tournament)
         return table
@@ -108,18 +122,22 @@ class PublicDrawForCurrentRoundView(PublicDrawForRoundView):
         return self.get_tournament().current_round
 
 
-class PublicAllDrawsAllTournamentsView(PublicTournamentPageMixin, TemplateView):
-    template_name = "public_draw_display_all.html"
+class PublicAllDrawsAllTournamentsView(PublicTournamentPageMixin, CacheMixin, BaseDrawTableView):
     public_page_preference = 'enable_mass_draws'
 
-    def get_context_data(self, **kwargs):
-        t = self.get_tournament()
-        all_rounds = list(Round.objects.filter(
-            tournament=t, draw_status=Round.STATUS_RELEASED))
-        for r in all_rounds:
-            r.draw = r.debate_set_with_prefetches()
-        kwargs['all_rounds'] = all_rounds
-        return super().get_context_data(**kwargs)
+    def get_round(self):
+        return None
+
+    def get_page_title(self):
+        return 'All Debates for all Rounds of %s ' % self.get_tournament().name
+
+    def get_draw(self):
+        all_rounds = Round.objects.filter(tournament=self.get_tournament(),
+                                          draw_status=Round.STATUS_RELEASED)
+        draw = []
+        for round in all_rounds:
+            draw.extend(round.debate_set_with_prefetches())
+        return draw
 
 
 # ==============================================================================
@@ -128,16 +146,21 @@ class PublicAllDrawsAllTournamentsView(PublicTournamentPageMixin, TemplateView):
 
 class AdminDrawDisplay(LoginRequiredMixin, BaseDrawTableView):
 
+    assistant_page_permissions = ['all_areas', 'results_draw']
     template_name = 'draw_display.html'
 
 
-class AdminDrawDisplayForRoundByVenueView(LoginRequiredMixin, BaseDrawTableView):
-    popovers = False
+class AdminDrawDisplayForRoundByVenueView(OptionalAssistantTournamentPageMixin, BaseDrawTableView):
+
+    assistant_page_permissions = ['all_areas', 'results_draw']
+    popovers = True
 
 
-class AdminDrawDisplayForRoundByTeamView(LoginRequiredMixin, BaseDrawTableView):
+class AdminDrawDisplayForRoundByTeamView(OptionalAssistantTournamentPageMixin, BaseDrawTableView):
+
+    assistant_page_permissions = ['all_areas', 'results_draw']
     sort_key = 'Team'
-    popovers = False
+    popovers = True
 
     def populate_table(self, draw, table, round, tournament):
         draw = list(draw) + list(draw) # Double up the draw
@@ -180,14 +203,14 @@ class AdminDrawView(RoundMixin, SuperuserRequiredMixin, VueTableTemplateView):
         if r.draw_status == r.STATUS_NONE:
             return table # Return Blank
 
-        draw = r.debate_set_with_prefetches(ordering=('room_rank',), institutions=True, venueconstraints=True)
+        draw = r.debate_set_with_prefetches(ordering=('room_rank',), institutions=True, venues=True)
         populate_history(draw)
         if r.is_break_round:
             table.add_room_rank_columns(draw)
         else:
             table.add_debate_bracket_columns(draw)
 
-        table.add_debate_venue_columns(draw)
+        table.add_debate_venue_columns(draw, for_admin=True)
         table.add_team_columns([d.aff_team for d in draw], key=aff_name(tournament).capitalize(),
             hide_institution=True)
         table.add_team_columns([d.neg_team for d in draw], key=neg_name(tournament).capitalize(),
@@ -387,13 +410,15 @@ class ScheduleDebatesView(SuperuserRequiredMixin, RoundMixin, TemplateView):
     def get_context_data(self, **kwargs):
         round = self.get_round()
         tournament = self.get_tournament()
-        vgs = VenueGroup.objects.all()
-        for vg in vgs:
-            first_debate = Debate.objects.filter(venue__group=vg, round__tournament=tournament, time__isnull=False).first()
-            if first_debate:
-                vg.placeholder_date = first_debate.time
+        vcs = VenueCategory.objects.all()
+        for vc in vcs:
+            for venue in vc.venues.all():
+                debate = Debate.objects.filter(venue=venue, round__tournament=tournament, time__isnull=False).first()
+                if debate:
+                    vc.placeholder_date = debate.time
+                    break
 
-        kwargs['venue_groups'] = vgs
+        kwargs['venue_categories'] = vcs
         kwargs['divisions'] = Division.objects.filter(tournament=round.tournament).order_by('id')
         return super().get_context_data(**kwargs)
 
@@ -418,10 +443,12 @@ class ApplyDebateScheduleView(DrawStatusEdit):
         debates = Debate.objects.filter(round=round)
         for debate in debates:
             division = debate.teams[0].division
-            if not division and not division.time_slot:
+            if not division:
+                continue
+            if not division.time_slot:
                 continue
 
-            date = request.POST[str(division.venue_group.id)]
+            date = request.POST[str(division.venue_category.id)]
             if not date:
                 continue
 
@@ -584,45 +611,55 @@ class AllTournamentsAllVenuesView(CrossTournamentPageMixin, CacheMixin, Template
     template_name = 'public_all_tournament_venues.html'
 
     def get_context_data(self, **kwargs):
-        kwargs['venues'] = VenueGroup.objects.all()
+        kwargs['venues'] = VenueCategory.objects.all()
         return super().get_context_data(**kwargs)
 
 
-class AllDrawsForAllTeamsView(CrossTournamentPageMixin, CacheMixin, TemplateView):
+class AllDrawsForAllTeamsView(CrossTournamentPageMixin, CacheMixin, BaseDrawTableView):
     public_page_preference = 'enable_mass_draws'
-    template_name = 'public_all_tournament_teams.html'
 
-    def get_context_data(self, **kwargs):
-        kwargs['teams'] = Team.objects.filter(tournament__active=True).select_related('tournament').prefetch_related('division')
-        return super().get_context_data(**kwargs)
+    def get_page_title(self):
+        return 'All Draws for All Teams'
+
+    def get_draw(self):
+        draw = Debate.objects.all().select_related('round', 'round__tournament',
+                                                   'division')
+        return draw
 
 
-class AllDrawsForInstitutionView(CrossTournamentPageMixin, CacheMixin, TemplateView):
+class AllDrawsForInstitutionView(CrossTournamentPageMixin, CacheMixin, BaseDrawTableView):
     public_page_preference = 'enable_mass_draws'
-    template_name = 'public_all_draws_for_institution.html'
 
-    def get_context_data(self, **kwargs):
-        kwargs['institution'] = Institution.objects.get(
-            pk=self.kwargs['institution_id'])
-        kwargs['debate_teams'] = DebateTeam.objects.filter(
-            team__institution=kwargs['institution']).select_related(
-            'debate', 'debate__division', 'debate__division__venue_group',
+    def get_institution(self):
+        return Institution.objects.get(pk=self.kwargs['institution_id'])
+
+    def get_page_title(self):
+        return 'All Debates for Teams from %s' % self.get_institution().name
+
+    def get_draw(self):
+        institution = self.get_institution()
+        debate_teams = DebateTeam.objects.filter(
+            team__institution=institution).select_related(
+            'debate', 'debate__division', 'debate__division__venue_category',
             'debate__round')
-        kwargs['debates'] = [dt.debate for dt in kwargs['debate_teams']]
-        return super().get_context_data(**kwargs)
+        draw = [dt.debate for dt in debate_teams]
+        return draw
 
 
-class AllDrawsForVenueView(CrossTournamentPageMixin, CacheMixin, TemplateView):
+class AllDrawsForVenueView(CrossTournamentPageMixin, CacheMixin, BaseDrawTableView):
     public_page_preference = 'enable_mass_draws'
-    template_name = 'public_all_draws_for_venue.html'
 
-    def get_context_data(self, **kwargs):
+    def get_venue_category(self):
         try:
-            kwargs['venue_group'] = VenueGroup.objects.get(pk=self.kwargs['venue_id'])
-            kwargs['debates'] = Debate.objects.filter(
-                division__venue_group=kwargs['venue_group']).select_related(
-                'round', 'round__tournament', 'division')
-        except VenueGroup.DoesNotExist:
-            messages.warning(self.request, 'This venue group does not exist.')
+            return VenueCategory.objects.get(pk=self.kwargs['venue_id'])
+        except VenueCategory.DoesNotExist:
+            messages.warning(self.request, 'This venue category does not exist.')
 
-        return super().get_context_data(**kwargs)
+    def get_page_title(self):
+        return 'All Debates at %s' % self.get_venue_category().name
+
+    def get_draw(self):
+        draw = Debate.objects.filter(
+            division__venue_category=self.get_venue_category()).select_related(
+            'round', 'round__tournament', 'division')
+        return draw

@@ -23,9 +23,9 @@ TIME_ZONE = 'Australia/Melbourne'
 LANGUAGE_CODE = 'en'
 USE_I18N = True
 
-TABBYCAT_VERSION = '1.2.3'
-TABBYCAT_CODENAME = 'Foldex'
-READTHEDOCS_VERSION = 'v1.2.3'
+TABBYCAT_VERSION = '1.3.0'
+TABBYCAT_CODENAME = 'Genetta'
+READTHEDOCS_VERSION = 'v1.3.0'
 
 LOCALE_PATHS = [
     os.path.join(BASE_DIR, 'locale'),
@@ -78,8 +78,10 @@ INSTALLED_APPS = (
     'django.contrib.messages') \
     + TABBYCAT_APPS + (
     'dynamic_preferences',
+    'dynamic_preferences.users.apps.UserPreferencesConfig',
     'django_extensions',  # For Secret Generation Command
-    'gfklookupwidget')
+    'gfklookupwidget',
+    'formtools')
 
 ROOT_URLCONF = 'urls'
 LOGIN_REDIRECT_URL = '/'
@@ -131,7 +133,7 @@ CACHES = {
 }
 
 # Use the cache for sessions rather than the db
-SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
+SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
 
 # ==============================================================================
 # Static Files and Compilation
@@ -154,9 +156,12 @@ STATICFILES_STORAGE = 'utils.misc.SquashedWhitenoiseStorage'
 GULP_PRODUCTION_COMMAND = "npm run gulp build -- --production"
 GULP_DEVELOP_COMMAND = "npm run gulp build -- --development"
 
+
 # ==============================================================================
 # Logging
 # ==============================================================================
+
+MESSAGE_STORAGE = 'django.contrib.messages.storage.session.SessionStorage'
 
 if os.environ.get('SENDGRID_USERNAME', ''):
     SERVER_EMAIL = os.environ['SENDGRID_USERNAME']
@@ -242,9 +247,21 @@ except:
 
 # Honor the 'X-Forwarded-Proto' header for request.is_secure()
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Require HTTPS
+if 'DJANGO_SECRET_KEY' in os.environ and os.environ.get('DISABLE_HTTPS_REDIRECTS', '') != 'disable':
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
 # Allow all host headers
 ALLOWED_HOSTS = ['*']
 
+# Store Tab Director Emails for reporting purposes
+if 'TAB_DIRECTOR_EMAIL' in os.environ:
+    TAB_DIRECTOR_EMAIL = os.environ.get('TAB_DIRECTOR_EMAIL', '')
+
+# Memcache Services
 if os.environ.get('MEMCACHIER_SERVERS', ''):
     try:
         os.environ['MEMCACHE_SERVERS'] = os.environ[
@@ -272,6 +289,7 @@ if os.environ.get('MEMCACHIER_SERVERS', ''):
             }
         }
 
+# Add an indicator that this site is running on a free tier
 if os.environ.get('KITTEN', '') == 'true':
     TABBYCAT_VERSION += "k"
 
