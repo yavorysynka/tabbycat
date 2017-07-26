@@ -10,9 +10,8 @@ from adjfeedback.progress import FeedbackProgressForAdjudicator, FeedbackProgres
 from draw.prefetch import populate_opponents
 from results.models import TeamScore
 from results.prefetch import populate_confirmed_ballots, populate_wins
-from tournaments.mixins import (CrossTournamentPageMixin, PublicTournamentPageMixin,
-                                SingleObjectByRandomisedUrlMixin, SingleObjectFromTournamentMixin,
-                                TournamentMixin)
+from tournaments.mixins import (PublicTournamentPageMixin, SingleObjectByRandomisedUrlMixin,
+                                SingleObjectFromTournamentMixin, TournamentMixin)
 from tournaments.models import Round
 from utils.misc import reverse_tournament
 from utils.mixins import CacheMixin, ModelFormSetView, SuperuserRequiredMixin, VueTableTemplateView
@@ -34,9 +33,8 @@ class TeamSpeakersJsonView(CacheMixin, SingleObjectFromTournamentMixin, View):
         return JsonResponse(data, safe=False)
 
 
-class PublicParticipantsListView(PublicTournamentPageMixin, CacheMixin, VueTableTemplateView):
+class BaseParticipantsListView(VueTableTemplateView):
 
-    public_page_preference = 'public_participants'
     page_title = 'Participants'
     page_emoji = '🚌'
 
@@ -54,6 +52,15 @@ class PublicParticipantsListView(PublicTournamentPageMixin, CacheMixin, VueTable
         speakers_table.add_team_columns([speaker.team for speaker in speakers])
 
         return [adjs_table, speakers_table]
+
+
+class ParticipantsListView(BaseParticipantsListView, SuperuserRequiredMixin, TournamentMixin):
+    pass
+
+
+class PublicParticipantsListView(BaseParticipantsListView, PublicTournamentPageMixin, CacheMixin):
+
+    public_page_preference = 'public_participants'
 
 
 # ==============================================================================
@@ -139,7 +146,7 @@ class BaseTeamRecordView(BaseRecordView):
             )
         debates = [ts.debate_team.debate for ts in teamscores]
         populate_opponents([ts.debate_team for ts in teamscores])
-        populate_confirmed_ballots(debates, motions=True, ballotsets=True)
+        populate_confirmed_ballots(debates, motions=True, results=True)
 
         table = TabbycatTableBuilder(view=self, title="Results", sort_key="Round")
         table.add_round_column([debate.round for debate in debates])
@@ -202,7 +209,7 @@ class BaseAdjudicatorRecordView(BaseRecordView):
             )
         debates = [da.debate for da in debateadjs]
         populate_wins(debates)
-        populate_confirmed_ballots(debates, motions=True, ballotsets=True)
+        populate_confirmed_ballots(debates, motions=True, results=True)
 
         table = TabbycatTableBuilder(view=self, title="Previous Rounds", sort_key="Round")
         table.add_round_column([debate.round for debate in debates])
@@ -239,7 +246,7 @@ class PublicAdjudicatorRecordView(PublicTournamentPageMixin, BaseAdjudicatorReco
 # Shift scheduling
 # ==============================================================================
 
-class PublicConfirmShiftView(CrossTournamentPageMixin, SingleObjectByRandomisedUrlMixin, ModelFormSetView):
+class PublicConfirmShiftView(SingleObjectByRandomisedUrlMixin, ModelFormSetView):
     # Django doesn't have a class-based view for formsets, so this implements
     # the form processing analogously to FormView, with less decomposition.
     # See also: motions.views.EditMotionsView.

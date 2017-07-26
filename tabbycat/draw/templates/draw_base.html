@@ -2,8 +2,12 @@
 {% load debate_tags %}
 
 {% block page-subnav-sections %}
+  <a class="btn btn-default submit-disable" href="{% roundurl 'availability-index' %}">
+    <span class="glyphicon glyphicon-chevron-left"></span> Back to Check-Ins
+  </a>
+
   <div class="btn-group">
-    <a class="btn btn-default submit-disable" href="{% roundurl 'edit_adj_allocation' %}" class="btn btn-default submit-disable">
+    <a class="btn btn-default submit-disable" href="{% roundurl 'edit-adj-allocation' %}" class="btn btn-default submit-disable">
       Allocate Adjudicators
     </a>
     <a href="{% roundurl 'venues-edit' round %}" class="btn btn-default submit-disable">
@@ -17,15 +21,15 @@
   {% endif %}
   <div class="btn-group">
     <a href="{% roundurl 'draw-matchups-edit' round %}" class="btn btn-default submit-disable">
-      Edit Draw
+      Edit Matchups
     </a>
     <a class="btn btn-default submit-disable" href="{% roundurl 'draw-confirm-regenerate' %}" class="btn btn-default submit-disable">
       Remake Draw
     </a>
+    <a class="btn btn-default submit-disable" href="{% roundurl 'draw-details' %}">
+      Draw Details
+    </a>
   </div>
-  <a class="btn btn-default submit-disable" href="{% roundurl 'draw-details' %}">
-    Draw Details
-  </a>
 {% endblock %}
 
 {% block page-subnav-actions %}

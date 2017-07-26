@@ -11,6 +11,7 @@ tabbycat/static/fonts/
 
 # Dependencies
 node_modules
+package-lock.json
 
 # Data to ignore
 data/*
@@ -42,6 +43,7 @@ venv-*/
 *.db
 .DS_Store
 .debug
+.eslintcache
 
 # C extensions
 *.so
@@ -79,3 +81,4 @@ nosetests.xml
 
 # Python 2to3 backup files
 *.bak
+/.stylelintcache

@@ -5,6 +5,7 @@ var gutil = require('gulp-util'); // Error logging + NoOop
 var sass = require('gulp-sass');
 var rename = require('gulp-rename');
 var concat = require('gulp-concat');
+var envify = require('envify');
 
 // Compression
 var cleanCSS = require('gulp-clean-css');
@@ -21,7 +22,7 @@ var streamify = require('gulp-streamify');
 // Debug & Config
 var livereload = require('gulp-livereload');
 var outputDir = 'tabbycat/static/';
-var isProduction = (gutil.env.development === true) ? false: true;
+var isProduction = (gutil.env.production === true) ? true : false;
 if (isProduction === true) {
   console.log('GULP: Building for production');
 } else if (isProduction === false) {
@@ -36,11 +37,8 @@ gulp.task('fonts-compile', function() {
       'node_modules/bootstrap-sass/assets/fonts/**/*.ttf',
       'node_modules/bootstrap-sass/assets/fonts/**/*.woff',
       'node_modules/bootstrap-sass/assets/fonts/**/*.woff2',
-      'node_modules/lato-font/fonts/**/*.eot',
-      'node_modules/lato-font/fonts/**/*.svg',
-      'node_modules/lato-font/fonts/**/*.ttf',
-      'node_modules/lato-font/fonts/**/*.woff',
-      'node_modules/lato-font/fonts/**/*.woff2'
+      'node_modules/lato-font/fonts/lato-normal/lato-normal.woff',
+      'node_modules/lato-font/fonts/lato-normal/lato-normal.woff2'
     ])
     .pipe(rename({dirname: ''})) // Remove folder structure
     .pipe(gulp.dest(outputDir + 'fonts/'));
@@ -61,9 +59,7 @@ gulp.task('styles-compile', function() {
 gulp.task("js-vendor-compile", function() {
   gulp.src([
     'node_modules/jquery/dist/jquery.js', // For Debug Toolbar
-    'node_modules/datatables.net/js/jquery.dataTables.js', // Deprecate,
     'node_modules/jquery-validation/dist/jquery.validate.js', // Deprecate,
-    'tabbycat/templates/js-vendor/jquery-ui.min.js' // Deprecate,
     ])
     .pipe(isProduction ? uglify() : gutil.noop()) // Doesnt crash
     .pipe(gulp.dest(outputDir + '/js/vendor/'));
@@ -86,13 +82,23 @@ gulp.task("js-browserify", function() {
   ];
   // map them to our stream function
   var tasks = files.map(function(entry) {
-    return browserify({ entries: [entry] })
+    return browserify({ entries: [entry],
+                        noparse: ['jquery', 'lodash'], // Skip big libs
+                        fast: false, // Skip detecting/inserting global vars
+      })
       .transform(vueify)
         .on('error', gutil.log)
       .transform([babelify, {
           presets: ["es2015"],
           plugins: ['transform-runtime']
-      }])
+        }])
+        .on('error', gutil.log)
+      .transform(envify, {
+          // Read from the gulp --production flag to determine whether Vue
+          // should be in development mode or not
+          global: true,
+          _: 'purge',
+        })
         .on('error', gutil.log)
       .bundle().on('error', gutil.log)
         .on('error', function() {
@@ -136,9 +142,9 @@ gulp.task('watch', ['build'], function() {
   gulp.watch('tabbycat/templates/scss/**/*.scss', ['styles-compile']);
   gulp.watch('tabbycat/templates/js-standalones/*.js', ['js-compile']);
   gulp.watch('tabbycat/templates/js-bundles/*.js', ['js-browserify']);
-  gulp.watch('tabbycat/templates/**/*.vue', ['js-browserify']);
+  gulp.watch('tabbycat/**/*.vue', ['js-browserify']);
   gulp.watch('tabbycat/**/*.html', ['html-reload']);
-  console.log('---------------------------\n');
-  console.log('Finished building Tabbycat!\n');
+  console.log('---------------------------');
+  console.log('Finished building Tabbycat!');
   console.log('---------------------------');
 });

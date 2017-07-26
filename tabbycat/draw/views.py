@@ -1,10 +1,13 @@
+import json
 import datetime
 import logging
 
-from django.views.generic.base import TemplateView, View
+from math import floor
+
+from django.views.generic.base import TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
-from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseRedirect
+from django.http import HttpResponseBadRequest, HttpResponseRedirect
 from django.utils.translation import ugettext as _
 
 from actionlog.mixins import LogActionMixin
@@ -13,9 +16,10 @@ from adjallocation.models import DebateAdjudicator
 from divisions.models import Division
 from participants.models import Adjudicator, Institution, Team
 from standings.teams import TeamStandingsGenerator
-from tournaments.mixins import CrossTournamentPageMixin, OptionalAssistantTournamentPageMixin, PublicTournamentPageMixin, RoundMixin, TournamentMixin
+from tournaments.mixins import CrossTournamentPageMixin, DrawForDragAndDropMixin
+from tournaments.mixins import OptionalAssistantTournamentPageMixin, PublicTournamentPageMixin, RoundMixin, SaveDragAndDropDebateMixin, TournamentMixin
 from tournaments.models import Round
-from tournaments.utils import aff_name, get_position_name, neg_name
+from tournaments.utils import aff_name, get_side_name, neg_name
 from utils.mixins import CacheMixin, PostOnlyRedirectView, SuperuserRequiredMixin, VueTableTemplateView
 from utils.misc import reverse_round
 from utils.tables import TabbycatTableBuilder
@@ -25,7 +29,7 @@ from venues.models import VenueCategory, VenueConstraint
 from .dbutils import delete_round_draw
 from .generator import DrawError
 from .manager import DrawManager
-from .models import Debate, DebateTeam, TeamPositionAllocation
+from .models import Debate, DebateTeam, TeamSideAllocation
 from .prefetch import populate_history
 
 logger = logging.getLogger(__name__)
@@ -35,7 +39,6 @@ class BaseDrawTableView(RoundMixin, VueTableTemplateView):
 
     template_name = 'draw_display_by.html'
     sort_key = 'Venue'
-    popovers = True
 
     def get_page_title(self):
         return 'Draw for %s' % self.get_round().name
@@ -85,7 +88,7 @@ class BaseDrawTableView(RoundMixin, VueTableTemplateView):
         tournament = self.get_tournament()
         round = self.get_round()
         draw = self.get_draw()
-        table = TabbycatTableBuilder(view=self, sort_key=self.sort_key, popovers=self.popovers)
+        table = TabbycatTableBuilder(view=self, sort_key=self.sort_key)
         self.populate_table(draw, table, round, tournament)
         return table
 
@@ -100,7 +103,7 @@ class PublicDrawForRoundView(PublicTournamentPageMixin, CacheMixin, BaseDrawTabl
 
     def get_template_names(self):
         round = self.get_round()
-        if round.draw_status != round.STATUS_RELEASED:
+        if round.draw_status != Round.STATUS_RELEASED:
             messages.info(self.request, 'The draw for ' + round.name +
                 ' has yet to be released')
             return ["base.html"]
@@ -109,7 +112,7 @@ class PublicDrawForRoundView(PublicTournamentPageMixin, CacheMixin, BaseDrawTabl
 
     def get_context_data(self, **kwargs):
         round = self.get_round()
-        if round.draw_status != round.STATUS_RELEASED:
+        if round.draw_status != Round.STATUS_RELEASED:
             kwargs["round"] = self.get_round()
             return super(BaseDrawTableView, self).get_context_data(**kwargs) # skip BaseDrawTableView
         else:
@@ -153,14 +156,12 @@ class AdminDrawDisplay(LoginRequiredMixin, BaseDrawTableView):
 class AdminDrawDisplayForRoundByVenueView(OptionalAssistantTournamentPageMixin, BaseDrawTableView):
 
     assistant_page_permissions = ['all_areas', 'results_draw']
-    popovers = True
 
 
 class AdminDrawDisplayForRoundByTeamView(OptionalAssistantTournamentPageMixin, BaseDrawTableView):
 
     assistant_page_permissions = ['all_areas', 'results_draw']
     sort_key = 'Team'
-    popovers = True
 
     def populate_table(self, draw, table, round, tournament):
         draw = list(draw) + list(draw) # Double up the draw
@@ -177,20 +178,22 @@ class AdminDrawDisplayForRoundByTeamView(OptionalAssistantTournamentPageMixin, B
 
 class AdminDrawView(RoundMixin, SuperuserRequiredMixin, VueTableTemplateView):
     detailed = False
+    sort_key = 'Bracket'
+    sort_order = 'desc'
 
     def get_page_title(self):
         round = self.get_round()
         self.page_emoji = '👀'
         if self.detailed:
             return 'Draw with Details for %s' % round.name
-        if round.draw_status == round.STATUS_NONE:
+        if round.draw_status == Round.STATUS_NONE:
             return 'No draw for %s' % round.name
-        elif round.draw_status == round.STATUS_DRAFT:
+        elif round.draw_status == Round.STATUS_DRAFT:
             return 'Draft draw for %s' % round.name
-        elif round.draw_status == round.STATUS_CONFIRMED:
+        elif round.draw_status == Round.STATUS_CONFIRMED:
             self.page_emoji = '👏'
             return 'Confirmed Draw for %s' % round.name
-        elif round.draw_status == round.STATUS_RELEASED:
+        elif round.draw_status == Round.STATUS_RELEASED:
             self.page_emoji = '👏'
             return 'Released draw for %s' % round.name
         else:
@@ -199,8 +202,8 @@ class AdminDrawView(RoundMixin, SuperuserRequiredMixin, VueTableTemplateView):
     def get_table(self):
         r = self.get_round()
         tournament = self.get_tournament()
-        table = TabbycatTableBuilder(view=self)
-        if r.draw_status == r.STATUS_NONE:
+        table = TabbycatTableBuilder(view=self, sort_key=self.sort_key, sort_order=self.sort_order)
+        if r.draw_status == Round.STATUS_NONE:
             return table # Return Blank
 
         draw = r.debate_set_with_prefetches(ordering=('room_rank',), institutions=True, venues=True)
@@ -217,7 +220,7 @@ class AdminDrawView(RoundMixin, SuperuserRequiredMixin, VueTableTemplateView):
             hide_institution=True)
 
         # For draw details and draw draft pages
-        if (r.draw_status == r.STATUS_DRAFT or self.detailed) and r.prev:
+        if (r.draw_status == Round.STATUS_DRAFT or self.detailed) and r.prev:
             teams = Team.objects.filter(debateteam__debate__round=r)
             metrics = r.tournament.pref('team_standings_precedence')
             generator = TeamStandingsGenerator(metrics, ('rank', 'subrank'))
@@ -227,9 +230,9 @@ class AdminDrawView(RoundMixin, SuperuserRequiredMixin, VueTableTemplateView):
             else:
                 self._add_break_rank_columns(table, draw, r.break_category)
             table.add_debate_metric_columns(draw, standings)
-            table.add_sides_count([d.aff_team for d in draw], r.prev, 'aff')
-            table.add_sides_count([d.neg_team for d in draw], r.prev, 'neg')
-        else:
+            table.add_side_counts([d.aff_team for d in draw], r.prev, 'aff')
+            table.add_side_counts([d.neg_team for d in draw], r.prev, 'neg')
+        elif not (r.draw_status == Round.STATUS_DRAFT or self.detailed):
             table.add_debate_adjudicators_column(draw, show_splits=False)
 
         table.add_draw_conflicts_columns(draw)
@@ -242,10 +245,10 @@ class AdminDrawView(RoundMixin, SuperuserRequiredMixin, VueTableTemplateView):
         tournament = self.get_tournament()
         for side in ('aff', 'neg'):
             # Translators: e.g. possessive might be "affirmative's" to get "affirmative's break rank"
-            tooltip = _("%(possessive)s break rank" % {'possessive': get_position_name(tournament, side, 'possessive')})
+            tooltip = _("%(possessive)s break rank" % {'possessive': get_side_name(tournament, side, 'possessive')})
             # Translators: e.g. initial might be "A" for affirmative to get "ABR"
             tooltip = tooltip.capitalize()
-            key = _("%(initial)sBR") % {'initial': get_position_name(tournament, side, 'initial')}
+            key = _("%(initial)sBR") % {'initial': get_side_name(tournament, side, 'initial')}
             table.add_column(
                 {'tooltip': tooltip, 'key': key},
                 [d.get_team(side).break_rank_for_category(category) for d in draw]
@@ -254,16 +257,14 @@ class AdminDrawView(RoundMixin, SuperuserRequiredMixin, VueTableTemplateView):
     def get_template_names(self):
         round = self.get_round()
         if self.detailed:
-            return ["draw_base.html"]
-        if round.draw_status == round.STATUS_NONE:
+            return ["draw_details.html"]
+        if round.draw_status == Round.STATUS_NONE:
             messages.warning(self.request, 'No draw exists yet — go to the ' +
                 'check-ins section for this round to generate a draw.')
             return ["base.html"]
-        elif round.draw_status == round.STATUS_DRAFT:
+        elif round.draw_status == Round.STATUS_DRAFT:
             return ["draw_status_draft.html"]
-        elif round.draw_status == round.STATUS_CONFIRMED:
-            return ["draw_status_confirmed.html"]
-        elif round.draw_status == round.STATUS_RELEASED:
+        elif round.draw_status in [Round.STATUS_CONFIRMED, Round.STATUS_RELEASED]:
             return ["draw_status_confirmed.html"]
         else:
             raise ValueError(round.draw_status)
@@ -292,7 +293,7 @@ class CreateDrawView(DrawStatusEdit):
     def post(self, request, *args, **kwargs):
         round = self.get_round()
 
-        if round.draw_status != round.STATUS_NONE:
+        if round.draw_status != Round.STATUS_NONE:
             messages.error(request, "Could not create draw for {}, there was already a draw!".format(round.name))
             return super().post(request, *args, **kwargs)
 
@@ -302,7 +303,7 @@ class CreateDrawView(DrawStatusEdit):
         except DrawError as e:
             messages.error(request, "There was a problem creating the draw: " + str(e) + " If this "
                 " issue persists and you're not sure how to resolve it, please contact the developers.")
-            logger.error(str(e), exc_info=True)
+            logger.exception("Problem creating draw: " + str(e))
             return HttpResponseRedirect(reverse_round('availability-index', round))
 
         relevant_adj_venue_constraints = VenueConstraint.objects.filter(
@@ -322,10 +323,10 @@ class ConfirmDrawCreationView(DrawStatusEdit):
 
     def post(self, request, *args, **kwargs):
         round = self.get_round()
-        if round.draw_status != round.STATUS_DRAFT:
+        if round.draw_status != Round.STATUS_DRAFT:
             return HttpResponseBadRequest("Draw status is not DRAFT")
 
-        round.draw_status = round.STATUS_CONFIRMED
+        round.draw_status = Round.STATUS_CONFIRMED
         round.save()
         self.log_action()
         return super().post(request, *args, **kwargs)
@@ -333,11 +334,13 @@ class ConfirmDrawCreationView(DrawStatusEdit):
 
 class DrawRegenerateView(DrawStatusEdit):
     action_log_type = ActionLogEntry.ACTION_TYPE_DRAW_REGENERATE
+    round_redirect_pattern_name = 'availability-index'
 
     def post(self, request, *args, **kwargs):
         round = self.get_round()
         delete_round_draw(round)
         self.log_action()
+        messages.success(request, "Deleted the draw. You can now recreate it as normal.")
         return super().post(request, *args, **kwargs)
 
 
@@ -351,10 +354,10 @@ class DrawReleaseView(DrawStatusEdit):
 
     def post(self, request, *args, **kwargs):
         round = self.get_round()
-        if round.draw_status != round.STATUS_CONFIRMED:
+        if round.draw_status != Round.STATUS_CONFIRMED:
             return HttpResponseBadRequest("Draw status is not CONFIRMED")
 
-        round.draw_status = round.STATUS_RELEASED
+        round.draw_status = Round.STATUS_RELEASED
         round.save()
         self.log_action()
         messages.success(request, "Released the draw. It will now show on the public-facing pages of this website.")
@@ -367,10 +370,10 @@ class DrawUnreleaseView(DrawStatusEdit):
 
     def post(self, request, *args, **kwargs):
         round = self.get_round()
-        if round.draw_status != round.STATUS_RELEASED:
+        if round.draw_status != Round.STATUS_RELEASED:
             return HttpResponseBadRequest("Draw status is not RELEASED")
 
-        round.draw_status = round.STATUS_CONFIRMED
+        round.draw_status = Round.STATUS_CONFIRMED
         round.save()
         self.log_action()
         messages.success(request, "Unreleased the draw. It will no longer show on the public-facing pages of this website.")
@@ -482,17 +485,16 @@ class ApplyDebateScheduleView(DrawStatusEdit):
 class BaseSideAllocationsView(TournamentMixin, VueTableTemplateView):
 
     page_title = "Side Pre-Allocations"
-    TPA_MAP = {DebateTeam.POSITION_AFFIRMATIVE: 'aff', DebateTeam.POSITION_NEGATIVE: 'neg'}
 
     def get_table(self):
         tournament = self.get_tournament()
         teams = tournament.team_set.all()
         rounds = tournament.prelim_rounds()
 
-        tpas = dict()
-        for tpa in TeamPositionAllocation.objects.filter(round__in=rounds):
+        tsas = dict()
+        for tsa in TeamSideAllocation.objects.filter(round__in=rounds):
             try:
-                tpas[(tpa.team.id, tpa.round.seq)] = get_position_name(tournament, self.TPA_MAP[tpa.position], 'abbr')
+                tsas[(tsa.team.id, tsa.round.seq)] = get_side_name(tournament, tsa.side, 'abbr')
             except ValueError:
                 pass
 
@@ -500,7 +502,7 @@ class BaseSideAllocationsView(TournamentMixin, VueTableTemplateView):
         table.add_team_columns(teams)
 
         headers = [round.abbreviation for round in rounds]
-        data = [[tpas.get((team.id, round.id), "—") for round in rounds] for team in teams]
+        data = [[tsas.get((team.id, round.seq), "—") for round in rounds] for team in teams]
         table.add_columns(headers, data)
 
         return table
@@ -514,83 +516,72 @@ class PublicSideAllocationsView(PublicTournamentPageMixin, BaseSideAllocationsVi
     public_page_preference = 'public_side_allocations'
 
 
-class DrawMatchupsEditView(SuperuserRequiredMixin, RoundMixin, TemplateView):
-    template_name = 'draw_matchups_edit.html'
+class EditMatchupsView(DrawForDragAndDropMixin, SuperuserRequiredMixin, TemplateView):
+    template_name = 'edit_matchups.html'
+    save_url = "save-debate-teams"
+
+    def annotate_draw(self, draw, serialised_draw):
+        round = self.get_round()
+        extra_debates = floor(round.active_teams.count() / 2 - len(serialised_draw))
+        for i in range(0, extra_debates):
+            # Make 'fake' debates as placeholders; need a unique ID (hence 9999)
+            serialised_draw.append({
+                'id': 999999 + i, 'teams': {}, 'panel': [], 'bracket': 0,
+                'importance': 0, 'venue': None
+            })
+
+        return super().annotate_draw(draw, serialised_draw)
 
     def get_context_data(self, **kwargs):
-        round = self.get_round()
-        kwargs['unused_teams'] = round.unused_teams()
-        kwargs['draw'] = round.debate_set_with_prefetches(ordering=('room_rank',))
-        possible_debates = len(kwargs['unused_teams']) // 2 + 1
-        kwargs['possible_debates'] = [None] * possible_debates
+        unused = [t for t in self.get_round().unused_teams()]
+        serialized_unused = [t.serialize() for t in unused]
+        break_thresholds = self.break_thresholds
+        for t, serialt in zip(unused, serialized_unused):
+            serialt = self.annotate_break_classes(serialt, break_thresholds)
+            serialt = self.annotate_region_classes(serialt)
+
+        kwargs['vueUnusedTeams'] = json.dumps(serialized_unused)
         return super().get_context_data(**kwargs)
 
 
-class SaveDrawMatchups(SuperuserRequiredMixin, RoundMixin, View):
+class SaveDrawMatchups(SaveDragAndDropDebateMixin):
+    action_log_type = ActionLogEntry.ACTION_TYPE_MATCHUP_SAVE
+    allows_creation = True
 
-    def post(self, request, *args, **kwargs):
-        existing_debate_ids = [int(a.replace('debate_', ''))
-                               for a in list(request.POST.keys())
-                               if a.startswith('debate_')]
+    def identify_position(self, translated_position):
+        # Positions are sent over in their labelled/translate form; need to lookup
+        # This is hardcoded to aff/neg; will need to refactor when positions update
+        translated_positions = {
+            get_side_name(self.get_tournament(), name, 'full'): name for name in ['aff', 'neg']}
+        position_short = translated_positions[translated_position]
+        if position_short is 'aff':
+            position = DebateTeam.POSITION_AFFIRMATIVE
+        if position_short is 'neg':
+            position = DebateTeam.POSITION_NEGATIVE
+        return position
 
-        for debate_id in existing_debate_ids:
-            try:
-                debate = Debate.objects.get(id=debate_id)
-            except Debate.DoesNotExist:
-                # When trying to save a blank debate (ie with no aff/neg)
-                # multiple times there is no corresponding object
-                continue
+    def modify_debate(self, debate, posted_debate):
+        teams = posted_debate['teams'].items()
+        print("Processing change for ", debate.id)
+        for d_position, d_team in teams:
+            position = self.identify_position(d_position)
+            team = Team.objects.get(pk=d_team['id'])
+            print("\tSaving change for ", team.short_name)
+            if DebateTeam.objects.filter(debate=debate, team=team, position=position).exists():
+                print("\t\tSkipping %s as not changed" % team.short_name)
+                continue # Skip the rest of the loop; no edit needed
+            # Delete whatever team currently exists in that spot
+            if DebateTeam.objects.filter(debate=debate, position=position).exists():
+                existing = DebateTeam.objects.get(debate=debate, position=position)
+                print('\t\tDeleting %s as %s' % (existing.team.short_name, existing.position))
+                existing.delete()
 
-            new_aff_id = request.POST.get(
-                'aff_%s' % debate_id).replace('team_', '')
-            new_neg_id = request.POST.get(
-                'neg_%s' % debate_id).replace('team_', '')
+            print("\t\tSaving %s as %s" % (team.short_name, position))
+            new_allocation = DebateTeam.objects.create(debate=debate, team=team,
+                                                       position=position)
+            new_allocation.save()
 
-            if new_aff_id and new_neg_id:
-                DebateTeam.objects.filter(debate=debate).delete()
-                debate.save()
-
-                new_aff_team = Team.objects.get(id=int(new_aff_id))
-                new_aff_dt = DebateTeam(debate=debate,
-                                        team=new_aff_team,
-                                        position=DebateTeam.POSITION_AFFIRMATIVE)
-                new_aff_dt.save()
-
-                new_aff_team = Team.objects.get(id=int(new_neg_id))
-                new_neg_dt = DebateTeam(debate=debate,
-                                        team=new_aff_team,
-                                        position=DebateTeam.POSITION_NEGATIVE)
-                new_neg_dt.save()
-            else:
-                # If there's blank debates we need to delete those
-                debate.delete()
-
-        new_debate_ids = [int(a.replace('new_debate_', ''))
-                          for a in list(request.POST.keys())
-                          if a.startswith('new_debate_')]
-
-        for debate_id in new_debate_ids:
-            new_aff_id = request.POST.get('aff_%s' % debate_id).replace('team_',
-                                                                        '')
-            new_neg_id = request.POST.get('neg_%s' % debate_id).replace('team_',
-                                                                        '')
-
-            if new_aff_id and new_neg_id:
-                debate = Debate(round=self.get_round(), venue=None)
-                debate.save()
-
-                aff_team = Team.objects.get(id=int(new_aff_id))
-                neg_team = Team.objects.get(id=int(new_neg_id))
-                new_aff_dt = DebateTeam(debate=debate,
-                                        team=aff_team,
-                                        position=DebateTeam.POSITION_AFFIRMATIVE)
-                new_neg_dt = DebateTeam(debate=debate,
-                                        team=neg_team,
-                                        position=DebateTeam.POSITION_NEGATIVE)
-                new_aff_dt.save()
-                new_neg_dt.save()
-
-        return HttpResponse("ok")
+        return debate
 
 
 # ==============================================================================
@@ -611,7 +602,7 @@ class AllTournamentsAllVenuesView(CrossTournamentPageMixin, CacheMixin, Template
     template_name = 'public_all_tournament_venues.html'
 
     def get_context_data(self, **kwargs):
-        kwargs['venues'] = VenueCategory.objects.all()
+        kwargs['venue_categories'] = VenueCategory.objects.all()
         return super().get_context_data(**kwargs)
 
 
@@ -653,10 +644,16 @@ class AllDrawsForVenueView(CrossTournamentPageMixin, CacheMixin, BaseDrawTableVi
         try:
             return VenueCategory.objects.get(pk=self.kwargs['venue_id'])
         except VenueCategory.DoesNotExist:
-            messages.warning(self.request, 'This venue category does not exist.')
+            messages.warning(self.request, 'This venue category does not exist \
+                or the URL for it might have changed. Try finding it again \
+                from the homepage.')
+            return False
 
     def get_page_title(self):
-        return 'All Debates at %s' % self.get_venue_category().name
+        if self.get_venue_category():
+            return 'All Debates at %s' % self.get_venue_category().name
+        else:
+            return 'Unknown Venue Category'
 
     def get_draw(self):
         draw = Debate.objects.filter(

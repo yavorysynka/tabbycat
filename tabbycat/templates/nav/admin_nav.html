@@ -2,19 +2,15 @@
 
 <ul class="nav nav-stacked" role="tablist">
   <li role="presentation" class="dropdown">
-    <a id="tournament_select"
-       href="#"
+    <a id="tournament_select" class="tournament-select" href="#"
        class="dropdown-toggle {% if overview_nav %}active{% endif %}"
        data-toggle="dropdown"
-       role="button"
-       aria-haspopup="true"
-       aria-expanded="false">
+       role="button" aria-haspopup="true" aria-expanded="false">
       <h5>
         {{ tournament }}<span class="caret pull-right"></span>
       </h5>
     </a>
-    <ul id="tournament_select_menu"
-        class="dropdown-menu"
+    <ul id="tournament-select-menu" class="dropdown-menu"
         aria-labelledby="tournament_select">
       {% for t in all_tournaments %}
         <li>
@@ -67,7 +63,7 @@
   </li>
   {% if pref.side_allocations_enabled == 'preallocated' %}
     <li class="standalone">
-      <a href="|{% tournamenturl 'draw-side-allocations' %}"
+      <a href="{% tournamenturl 'draw-side-allocations' %}"
          class="{% if sides_nav %}active{% endif %}">
         <span class="circle-icon icon-container">
           <span class="glyphicon glyphicon-resize-horizontal"></span>
@@ -114,7 +110,7 @@
          data-toggle="collapse"
          data-parent="#accordion"
          href="#collapseOne"
-         aria-expanded="{% if options_nav or import_nav %}true{% else %}false{% endif %}"
+         aria-expanded="{% if options_nav or import_nav or participants_nav %}true{% else %}false{% endif %}"
          aria-controls="collapseOne">
         <span class="circle-icon icon-container">
           <span class="glyphicon glyphicon-briefcase"></span>
@@ -123,7 +119,7 @@
       </a>
     </div>
     <div id="collapseOne"
-         class="panel-collapse collapse {% if options_nav or import_nav or import_random %}in{% endif %}"
+         class="panel-collapse collapse {% if options_nav or import_nav or import_random or participants_nav%}in{% endif %}"
          role="tabpanel"
          aria-labelledby="headingOne">
       <ul class="nav nav-pills nav-stacked">
@@ -143,6 +139,15 @@
               <span class="glyphicon glyphicon-download"></span>
             </span>
             Import Data
+          </a>
+        </li>
+        <li>
+          <a class="{% if participants_nav %}active{% endif %}"
+             href="{% tournamenturl 'participants-list' %}">
+            <span class="circle-icon icon-container">
+              <span class="glyphicon glyphicon-user"></span>
+            </span>
+            Participants
           </a>
         </li>
         <li>

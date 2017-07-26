@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% load debate_tags %}
+
+{% block page-title %}✅{{ preset_title }} Presets Applied{% endblock %}
+{% block head-title %}<span class="emoji">✅</span>{{ preset_title }} Presets Applied{% endblock %}
+
+{% block page-subnav-sections %}
+  <a class="btn btn-default submit-disable"
+     href="{% tournamenturl 'options-tournament-index' %}">
+    <span class="glyphicon glyphicon-chevron-left"></span> Back to Configuration
+  </a>
+{% endblock %}
+
+{% block content %}
+
+  {% include "preferences_changed.html" with preferences=changed_preferences title="Preferences that were changed" %}
+
+{% endblock content %}

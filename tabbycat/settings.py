@@ -23,9 +23,9 @@ TIME_ZONE = 'Australia/Melbourne'
 LANGUAGE_CODE = 'en'
 USE_I18N = True
 
-TABBYCAT_VERSION = '1.3.1'
-TABBYCAT_CODENAME = 'Genetta'
-READTHEDOCS_VERSION = 'v1.3.1'
+TABBYCAT_VERSION = '1.4.0'
+TABBYCAT_CODENAME = 'Havana Brown'
+READTHEDOCS_VERSION = 'v1.4.0'
 
 LOCALE_PATHS = [
     os.path.join(BASE_DIR, 'locale'),
@@ -73,6 +73,7 @@ INSTALLED_APPS = (
     'django.contrib.sessions',
     'django_gulp',  # Asset compilation; must be before staticfiles
     'whitenoise.runserver_nostatic',  # Use whitenoise with runserver
+    'raven.contrib.django.raven_compat',  # Client for Sentry error tracking
     'django.contrib.staticfiles',
     'django.contrib.humanize',
     'django.contrib.messages') \
@@ -153,7 +154,7 @@ STATICFILES_FINDERS = (
 STATICFILES_STORAGE = 'utils.misc.SquashedWhitenoiseStorage'
 
 # When running server side always use build not watch
-GULP_PRODUCTION_COMMAND = "npm run gulp build -- --production"
+GULP_PRODUCTION_COMMAND = "export NODE_ENV=production && npm run gulp build -- --production"
 GULP_DEVELOP_COMMAND = "npm run gulp build -- --development"
 
 
@@ -178,24 +179,26 @@ LOGGING = {
     'filters': {
         'require_debug_false': {
             '()': 'django.utils.log.RequireDebugFalse',  # disables e-mails to admins when DEBUG on
-        }
+        },
+        'except_importer_base': {
+            '()': 'utils.logging.ExceptFilter',
+            'name': 'importer.base',
+        },
     },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
             'formatter': 'standard',
         },
-        'email_on_error': {  # errors and above are e-mailed to admins
+        'mail_admins': {  # errors and above are e-mailed to admins
             'level': 'ERROR',
-            'filters': ['require_debug_false'],
+            'filters': ['require_debug_false', 'except_importer_base'],
             'class': 'django.utils.log.AdminEmailHandler',
             'include_html': True,
         },
-        'email_on_critical': {
-            'level': 'CRITICAL',
-            'filters': ['require_debug_false'],
-            'class': 'django.utils.log.AdminEmailHandler',
-            'include_html': True,
+        'sentry': {
+            'level': 'WARNING',
+            'class': 'raven.contrib.django.raven_compat.handlers.SentryHandler',
         },
     },
     'loggers': {
@@ -204,8 +207,18 @@ LOGGING = {
             'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
         },
         'django.request': {
-            'handlers': ['email_on_error'],
+            'handlers': ['mail_admins', 'sentry'],
             'level': 'ERROR',
+        },
+        'raven': {
+            'level': 'INFO',
+            'handlers': ['console'],
+            'propagate': False,
+        },
+        'sentry.errors': {
+            'level': 'INFO',
+            'handlers': ['console'],
+            'propagate': False,
         },
     },
     'formatters': {
@@ -217,10 +230,23 @@ LOGGING = {
 
 for app in TABBYCAT_APPS:
     LOGGING['loggers'][app] = {
-        'handlers': ['console', 'email_on_critical'],
+        'handlers': ['console', 'mail_admins', 'sentry'],
         'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
     }
 
+# ==============================================================================
+# Sentry
+# ==============================================================================
+
+DISABLE_SENTRY = True
+
+if 'DATABASE_URL' in os.environ and not DEBUG:
+    DISABLE_SENTRY = False  # Only log JS errors in production on heroku
+
+    RAVEN_CONFIG = {
+        'dsn': 'https://6bf2099f349542f4b9baf73ca9789597:57b33798cc2a4d44be67456f2b154067@sentry.io/185382',
+        'release': TABBYCAT_VERSION,
+    }
 
 # ==============================================================================
 # Messages
@@ -332,6 +358,6 @@ else:
         LOCAL_SETTINGS
     except NameError:
         try:
-            from local_settings import *   # flake8: noqa
+            from local_settings import *   # noqa: F401, F403
         except ImportError:
             pass

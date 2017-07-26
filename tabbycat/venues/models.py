@@ -1,13 +1,13 @@
 from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
+from django.forms.models import model_to_dict
 from django.utils.translation import ugettext_lazy as _
 
 
 class Venue(models.Model):
     name = models.CharField(max_length=40,
         verbose_name=_("name"))
-    # group = models.ForeignKey(VenueGroup, models.SET_NULL, blank=True, null=True)
     priority = models.IntegerField(
         verbose_name=_("priority"),
         help_text=_("Venues with a higher priority number will be preferred when allocating venues to debates"))
@@ -44,6 +44,13 @@ class Venue(models.Model):
             display_name += " " + ", ".join(suffixes)
         return display_name
 
+    def serialize(self):
+        venue = {'id': self.id, 'name': self.name, 'priority': self.priority, 'locked': False}
+        venue['categories'] = [{
+            'id': vc.id, 'name': vc.name, 'description': vc.description
+        } for vc in self.venuecategory_set.all()]
+        return venue
+
     def __str__(self):
         return self.display_name
 
@@ -73,7 +80,7 @@ class VenueCategory(models.Model):
             "\"is close to the briefing hall\". This description follows \"This venue\" when "
             "shown in tooltips, e.g., \"This venue is close to the briefing hall.\"."))
 
-    venues = models.ManyToManyField(Venue, verbose_name=_("venues"))
+    venues = models.ManyToManyField(Venue, verbose_name=_("venues"), blank=True)
 
     display_in_venue_name = models.CharField(max_length=1, choices=DISPLAY_IN_VENUE_NAME_CHOICES,
         default=DISPLAY_NONE,
@@ -134,3 +141,14 @@ class VenueConstraint(models.Model):
 
     def __str__(self):
         return "%s for %s [%s]" % (self.subject, self.category, self.priority)
+
+    def serialize(self):
+        constraint = model_to_dict(self)
+        constraint['subject_type'] = self.subject_content_type.name
+        if self.subject_content_type.name == 'team':
+            constraint['subject_name'] = self.subject.short_name
+        elif self.subject_content_type.name == 'adjudicator':
+            constraint['subject_name'] = self.subject.name
+        elif self.subject_content_type.name == 'institution':
+            constraint['subject_name'] = self.subject.code
+        return constraint

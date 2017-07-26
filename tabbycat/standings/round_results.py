@@ -1,11 +1,7 @@
 import logging
 
-from django.db.models.expressions import RawSQL
-
 from draw.prefetch import populate_opponents
-from results.models import TeamScore, SpeakerScore
-from participants.models import Team
-
+from results.models import SpeakerScore, TeamScore
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +21,8 @@ def add_team_round_results(standings, rounds, lookup=None, id_attr='instance_id'
     """
 
     if lookup is None:
-        lookup = lambda standings, x: standings.get_standing(x)  # flake8: noqa
+        def lookup(standings, x):
+            return standings.get_standing(x)
 
     teams = [getattr(info, id_attr) for info in standings]
     teamscores = TeamScore.objects.select_related(
@@ -74,9 +71,9 @@ def add_speaker_round_results(standings, rounds, tournament, replies=False):
         speaker_id__in=speaker_ids, ghost=False)
 
     if replies:
-        speaker_scores = speaker_scores.filter(position=tournament.REPLY_POSITION)
+        speaker_scores = speaker_scores.filter(position=tournament.reply_position)
     else:
-        speaker_scores = speaker_scores.filter(position__lte=tournament.LAST_SUBSTANTIVE_POSITION)
+        speaker_scores = speaker_scores.filter(position__lte=tournament.last_substantive_position)
 
     for info in standings:
         info.scores = ['—'] * len(rounds)

@@ -3,106 +3,112 @@
 //------------------------------------------------------------------------------
 
 // The parent element needed to override team/adj specific default borders
+// Teams we want to have no border to reduce clutter; adjs we want so they
+// appear like draggable buttons/elements
 .conflictable {
-  // Teams we want to have no border to reduce clutter; adjs we want so they
-  // appear like draggable buttons/elements
-  &.adj-draggable {
-    border: 4px solid $btn-default-border;
-  }
-  &.debate-team {
-    border: 4px solid rgba(255,255,255, 0);
-  }
-  // For hover states
-  &.conflict-hover-personal-conflict {
-    background: $brand-danger;
-  }
-  &.conflict-hover-institutional-conflict {
-    background: $brand-warning;
-  }
-  &.conflict-hover-1-ago {
-    background: darken($brand-primary, 20%);
-  }
-  &.conflict-hover-2-ago {
-    background: lighten($brand-primary, 0%);
-  }
-  &.conflict-hover-3-ago {
-    background: lighten($brand-primary, 15%);
-  }
-  &.conflict-hover-4-ago {
-    background: lighten($brand-primary, 30%);
-  }
-  &.conflict-hover-5-ago {
-    background: lighten($brand-primary, 34%);
-  }
-  &.conflict-hover-6-ago {
-    background: lighten($brand-primary, 36%);
-  }
-  &.conflict-hover-7-ago {
-    background: lighten($brand-primary, 40%);
-  }
-  &.conflict-hover-8-ago {
-    background: lighten($brand-primary, 44%);
-  }
-  &.conflict-hover-9-ago {
-    background: lighten($brand-primary, 48%);
-  }
-  // For in panel states
-  &.conflict-panel-personal-conflict {
-    border-color: darken($brand-danger, 10%);
-  }
-  &.conflict-panel-institutional-conflict {
-    border-color: darken($brand-warning, 10%);
-  }
-  &.conflict-panel-1-ago {
-    border-color: darken($brand-primary, 20%);
-  }
-  &.conflict-panel-2-ago {
-    border-color: lighten($brand-primary, 0%);
-  }
-  &.conflict-panel-3-ago {
-    border-color: lighten($brand-primary, 15%);
-  }
-  &.conflict-panel-4-ago {
-    border-color: lighten($brand-primary, 30%);
-  }
-  &.conflict-panel-5-ago {
-    border-color: lighten($brand-primary, 34%);
-  }
-  &.conflict-panel-6-ago {
-    border-color: lighten($brand-primary, 36%);
-  }
-  &.conflict-panel-7-ago {
-    border-color: lighten($brand-primary, 40%);
-  }
-  &.conflict-panel-8-ago {
-    border-color: lighten($brand-primary, 44%);
-  }
-  &.conflict-panel-9-ago {
-    border-color: lighten($brand-primary, 48%);
-  }
-}
 
-// Custom hover state to override button default
-.conflictable.vue-is-hovering,
-.conflictable.vue-is-dragging,
-.conflictable.vue-is-hovering:active {
-  background: #000;
-  border-color: $gray;
+  &.hover-histories-1-ago {
+    background: darken($conflict-history-base, 20%);
+  }
 
-  .text-muted {
-    opacity: 1;
+  &.hover-histories-2-ago {
+    background: lighten($conflict-history-base, 0%);
+  }
+
+  &.hover-histories-3-ago {
+    background: lighten($conflict-history-base, 15%);
+  }
+
+  &.hover-histories-4-ago {
+    background: lighten($conflict-history-base, 30%);
+  }
+
+  &.hover-histories-5-ago {
+    background: lighten($conflict-history-base, 34%);
+  }
+
+  &.hover-histories-6-ago {
+    background: lighten($conflict-history-base, 36%);
+  }
+
+  &.hover-histories-7-ago {
+    background: lighten($conflict-history-base, 40%);
+  }
+
+  &.hover-histories-8-ago {
+    background: lighten($conflict-history-base, 44%);
+  }
+
+  &.hover-histories-9-ago {
+    background: lighten($conflict-history-base, 48%);
+  }
+
+  // Must be below histories (to take precedence)
+  &.hover-institution {
+    background: $conflict-institution;
+  }
+
+  // Must be below histories + institutions (ie to take precedence)
+  &.hover-adjudicator,
+  &.hover-team {
+    background: $conflict-clash;
+  }
+
+  &.panel-histories-1-ago {
+    border-color: darken($conflict-history-base, 20%);
+  }
+
+  &.panel-histories-2-ago {
+    border-color: lighten($conflict-history-base, 0%);
+  }
+
+  &.panel-histories-3-ago {
+    border-color: lighten($conflict-history-base, 15%);
+  }
+
+  &.panel-histories-4-ago {
+    border-color: lighten($conflict-history-base, 30%);
+  }
+
+  &.panel-histories-5-ago {
+    border-color: lighten($conflict-history-base, 34%);
+  }
+
+  &.panel-histories-6-ago {
+    border-color: lighten($conflict-history-base, 36%);
+  }
+
+  &.panel-histories-7-ago {
+    border-color: lighten($conflict-history-base, 40%);
+  }
+
+  &.panel-histories-8-ago {
+    border-color: lighten($conflict-history-base, 44%);
+  }
+
+  &.panel-histories-9-ago {
+    border-color: lighten($conflict-history-base, 48%);
+  }
+
+  // Must appear after seens
+  &.panel-institution {
+    border-color: darken($conflict-institution, 10%);
+  }
+
+  // Must appear after seens and after institutionals
+  &.panel-adjudicator,
+  &.panel-team, {
+    border-color: darken($conflict-clash, 10%);
   }
 }
 
 // Ensure text is treated nicely when a conflict state is active
-.conflictable.vue-is-hovering,
-.conflictable.vue-is-dragging,
-.conflictable.vue-is-hovering:active,
-.conflict-hover-personal-conflict,
-.conflict-hover-institutional-conflict,
-.conflict-hover-1-ago,
-.conflict-hover-2-ago,
-.conflict-hover-3-ago {
+.hover-adjudicator,
+.hover-team,
+.hover-institution,
+.hover-histories-1-ago,
+.hover-histories-2-ago,
+.hover-histories-3-ago {
   color: #fff;
 
   span,
