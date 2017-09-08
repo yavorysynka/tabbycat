@@ -8,6 +8,7 @@ from django.views.generic.base import TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
 from django.http import HttpResponseBadRequest, HttpResponseRedirect
+from django.utils.html import mark_safe
 from django.utils.translation import ugettext as _
 
 from actionlog.mixins import LogActionMixin
@@ -15,19 +16,22 @@ from actionlog.models import ActionLogEntry
 from adjallocation.models import DebateAdjudicator
 from divisions.models import Division
 from participants.models import Adjudicator, Institution, Team
+from standings.base import StandingsError
 from standings.teams import TeamStandingsGenerator
-from tournaments.mixins import CrossTournamentPageMixin, DrawForDragAndDropMixin
-from tournaments.mixins import OptionalAssistantTournamentPageMixin, PublicTournamentPageMixin, RoundMixin, SaveDragAndDropDebateMixin, TournamentMixin
+from standings.views import BaseStandingsView
+from tournaments.mixins import (CrossTournamentPageMixin, DrawForDragAndDropMixin,
+    OptionalAssistantTournamentPageMixin, PublicTournamentPageMixin, RoundMixin,
+    SaveDragAndDropDebateMixin, TournamentMixin)
 from tournaments.models import Round
 from tournaments.utils import aff_name, get_side_name, neg_name
 from utils.mixins import CacheMixin, PostOnlyRedirectView, SuperuserRequiredMixin, VueTableTemplateView
-from utils.misc import reverse_round
+from utils.misc import reverse_round, reverse_tournament
 from utils.tables import TabbycatTableBuilder
 from venues.allocator import allocate_venues
 from venues.models import VenueCategory, VenueConstraint
 
 from .dbutils import delete_round_draw
-from .generator import DrawError
+from .generator import DrawFatalError, DrawUserError
 from .manager import DrawManager
 from .models import Debate, DebateTeam, TeamSideAllocation
 from .prefetch import populate_history
@@ -300,10 +304,34 @@ class CreateDrawView(DrawStatusEdit):
         manager = DrawManager(round)
         try:
             manager.create()
-        except DrawError as e:
-            messages.error(request, "There was a problem creating the draw: " + str(e) + " If this "
-                " issue persists and you're not sure how to resolve it, please contact the developers.")
-            logger.exception("Problem creating draw: " + str(e))
+        except DrawUserError as e:
+            messages.error(request, mark_safe(_(
+                "<p>The draw could not be created, for the following reason: "
+                "<em>%(message)s</em></p>\n"
+                "<p>Please fix this issue before attempting to create the draw.</p>"
+            ) % {'message': str(e)}))
+            logger.warning("User error creating draw: " + str(e), exc_info=True)
+            return HttpResponseRedirect(reverse_round('availability-index', round))
+        except DrawFatalError as e:
+            messages.error(request, mark_safe(_(
+                "The draw could not be created, because the following error occurred: "
+                "<em>%(message)s</em></p>\n"
+                "<p>If this issue persists and you're not sure how to resolve it, please "
+                "contact the developers.</p>"
+            ) % {'message': str(e)}))
+            logger.exception("Fatal error creating draw: " + str(e))
+            return HttpResponseRedirect(reverse_round('availability-index', round))
+        except StandingsError as e:
+            message = _(
+                "<p>The team standings could not be generated, because the following error occurred: "
+                "<em>%(message)s</em></p>\n"
+                "<p>Because generating the draw uses the current team standings, this "
+                "prevents the draw from being generated.</p>"
+            ) % {'message': str(e)}
+            standings_options_url = reverse_tournament('options-tournament-standings', self.get_tournament())
+            instructions = BaseStandingsView.standings_error_instructions % {'standings_options_url': standings_options_url}
+            messages.error(request, mark_safe(message + instructions))
+            logger.exception("Error generating standings for draw: " + str(e))
             return HttpResponseRedirect(reverse_round('availability-index', round))
 
         relevant_adj_venue_constraints = VenueConstraint.objects.filter(
