@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 set -eo pipefail
 
+echo "-----> This is a special version of the post-compile hook"
+echo "       for faking migrations. Use with caution!"
+
 echo "-----> I'm post-compile hook"
 cd ./tabbycat/
 
-echo "-----> Running database migration"
-python manage.py migrate --noinput
+echo "-----> Faking database migration"
+python manage.py migrate --noinput --fake
 
 echo "-----> Clearing application cache"
 python manage.py clearcache
