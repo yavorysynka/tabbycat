@@ -1,5 +1,5 @@
 <template>
-  <table class="table" :class="tableClass">
+  <table class="table table-responsive-md" :class="tableClass">
 
     <thead>
       <tr>
@@ -14,7 +14,9 @@
 
     <tbody>
       <tr v-if="typeof tableHeaders === 'undefined' || rows.length === 0">
-        <td class="empty-cell text-center text-muted">No Data Available</td>
+        <td class="empty-cell text-center text-muted">
+          {{ emptyTitle }}
+        </td>
       </tr>
       <tr v-for="row in dataFilteredByKey">
         <td v-for="(cellData, cellIndex) in row"
@@ -38,7 +40,8 @@ import _ from 'lodash'
 export default {
   mixins: [SortableTableMixin],
   components: { SmartHeader, SmartCell, FeedbackTrend, CheckCell },
-  props: { tableHeaders: Array, tableContent: Array, tableClass: String },
+  props: { tableHeaders: Array, tableContent: Array, tableClass: String,
+           emptyTitle: String },
   computed: {
     rows: function() {
       var rows = []

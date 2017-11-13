@@ -11,7 +11,7 @@ Installation---the short way
 Click this button:
 
 .. image:: https://www.herokucdn.com/deploy/button.svg
-  :target: https://heroku.com/deploy?template=https://github.com/czlee/tabbycat/tree/master
+  :target: https://heroku.com/deploy?template=https://github.com/TabbycatDebate/tabbycat/tree/master
 
 This is the easiest way to deploy an instance of Tabbycat online. It requires no technical background.
 
@@ -19,7 +19,7 @@ If you don't already have a Heroku account, it'll prompt you to create one. Once
 
 .. note:: During the setup process Heroku will ask you to verify your account by adding a credit or debit card. A standard Tabbycat site *will not charge* your card without explicit permission — charges only accrue if you deliberately add a paid service in the Heroku dashboard.
 
-  That said if you do not have access to a credit/debit card we offer a version of the software — 'Tabbykitten' — that does not require Heroku to verify your account. However, as a result, this version is limited: it does not send error reports to the developers and can handle much less public traffic. We strongly recommend using it only as a last resort, and even then only for small tournaments. `Use this link to set up a Tabbykitten site <https://heroku.com/deploy?template=https://github.com/czlee/tabbycat/tree/kitten&env[KITTEN]=true>`_.
+  That said if you do not have access to a credit/debit card we offer a version of the software — 'Tabbykitten' — that does not require Heroku to verify your account. However, as a result, this version is limited: it does not send error reports to the developers and can handle much less public traffic. We strongly recommend using it only as a last resort, and even then only for small tournaments. `Use this link to set up a Tabbykitten site <https://heroku.com/deploy?template=https://github.com/TabbycatDebate/tabbycat/tree/kitten>`_.
 
 If you have a background in programming, you might prefer the method below.
 
@@ -27,14 +27,14 @@ Installation---the long way
 ===========================
 The long way sets you up with more control over your environment. Because you'll clone `our GitHub repository`_, it'll be easier for you to pull and contribute updates to the source code.  We recommend it if you have experience with Git.  It's also easier with this method to import CSV files using the command-line importer, so if you have a very large tournament, this might make importing initial data easier.
 
-We've tested these instructions successfully on Windows, Linux and Mac OS.
+We've tested these instructions successfully on Windows, Linux and macOS.
 
 Requisite technical background
 ------------------------------
 
 You need to have at least a passing familiarity with command-line interfaces to get through the longer traditional method. We'll talk you through the rest.
 
-When we say "command shell", on Windows we mean **Command Prompt**, and on Linux and OS X we mean **Terminal** (or your favourite command shell).
+When we say "command shell", on Windows we mean **Command Prompt**, and on Linux and macOS we mean **Terminal** (or your favourite command shell).
 
 .. admonition:: Advanced users
   :class: tip
@@ -45,7 +45,7 @@ Short version
 -------------
 .. parsed-literal::
 
-  git clone https\:\/\/github.com/czlee/tabbycat.git
+  git clone https\:\/\/github.com/TabbycatDebate/tabbycat.git
   git checkout |vrelease|                               # or master
   cd tabbycat
   python deploy_heroku.py <yourappname>
@@ -65,7 +65,7 @@ If you want to :ref:`import tournament data <importing-initial-data>` from CSV f
 
 - If you don't already have **Git**, follow the `instructions on the GitHub website <https://help.github.com/articles/set-up-git>`_ to set up Git.
 
-.. note:: Linux and OS X users probably already have Python installed. There is no need to install Python 3 specifically. Although Tabbycat uses Python 3, installing it on Heroku relies only on the deployment script, which is compatible with both Python 2 and Python 3.
+.. note:: Linux and macOS users probably already have Python installed. There is no need to install Python 3 specifically. Although Tabbycat uses Python 3, installing it on Heroku relies only on the deployment script, which is compatible with both Python 2 and Python 3.
 
 2. Get the source code
 ----------------------
@@ -73,7 +73,7 @@ Open a command shell. Navigate to an appropriate directory on your computer usin
 
 .. parsed-literal::
 
-  git clone https\:\/\/github.com/czlee/tabbycat.git
+  git clone https\:\/\/github.com/TabbycatDebate/tabbycat.git
   git checkout |vrelease|                               # or master
 
 
@@ -81,6 +81,8 @@ Open a command shell. Navigate to an appropriate directory on your computer usin
 
 3. Deploy to Heroku
 -------------------
+
+.. rst-class:: spaced-list
 
 1. Navigate to your Tabbycat directory::
 
@@ -109,6 +111,8 @@ Open a command shell. Navigate to an appropriate directory on your computer usin
 
 In order to use the ``importtournament`` command directly on the server, your data also needs to be on the server. The easiest way to get this data on to the server is to make a Git commit and ``git push`` it to the server.
 
+.. rst-class:: spaced-list
+
 1. Place your CSV files in ``data/yourtournamentname``, as described in :ref:`importing-initial-data`.
 
 2. Commit and push::
@@ -135,7 +139,11 @@ If you have a large tournament, you may want to customize your Heroku app. This 
 Upgrading your database size
 ----------------------------
 
-The free plan of `Heroku Postgres <https://elements.heroku.com/addons/heroku-postgresql>`_, "Hobby Dev", should work for most small tournaments. For large tournaments, however, you may find that you exceed the 10,000-row limit of this plan. It's difficult to give general guidance on how many rows you're likely to use, because it depends on which features of Tabbycat you use (*e.g.*, if you use adjudicator feedback). But to give some idea, Australs 2016, which had 74 teams and 8 preliminary rounds and used adjudicator feedback, ended up at around 30,000 rows.
+The free plan of `Heroku Postgres <https://elements.heroku.com/addons/heroku-postgresql>`_, "Hobby Dev", should work for most small tournaments. For large tournaments, however, you may find that you exceed the 10,000-row limit of this plan. It's difficult to give general guidance on how many rows you're likely to use, because it depends on which features of Tabbycat you use (*e.g.*, if you use adjudicator feedback). But to give some idea:
+
+- Australs 2016, which had 74 teams, 8 preliminary rounds and heavily used adjudicator feedback, ended up at around 30,000 rows.
+- The Asia BP championships 2017 had 100 teams, 6 preliminary rounds, and mandatory feedback (i.e. 100% return rates) used 15,000 rows.
+- A 3 vs 3 tournament with 54 teams, 5 preliminary rounds, and which only lightly used adjudicator feedback ended up using around 4,500 rows
 
 If you need more than 10,000 rows, you'll need to upgrade to a paid Heroku Postgres Plan. The 10,000,000 rows allowed in the lowest paid plan, "Hobby Basic", should certainly be more than sufficient.
 

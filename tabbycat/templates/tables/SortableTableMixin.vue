@@ -37,9 +37,19 @@ export default {
   computed: {
     dataOrderedByKey: function() {
       // Find the index of the cell matching the sortKey within each row
-      var orderedHeaderIndex = _.findIndex(this.headers, {'key': this.sortKey});
+      var key = this.sortKey.toLowerCase()
+      // Tables with no data have no headers
+      if (this.headers.length === 0 || key === '') {
+        return this.sortableData;
+      }
+      // Identify header matching to sort key
+      var orderedHeaderIndex = _.findIndex(this.headers, function(header) {
+        return header.key.toLowerCase() == key;
+      });
+      // If no matches found log an error (asynchronously so table will render)
       if (orderedHeaderIndex === -1) {
-        console.log("Couldn't locate sort key: ", this.sortKey, " in headers", this.headers)
+        var errorDetails = "No sort key '" + key + "' in headers: " + _.map(this.headers, 'key');
+        setTimeout(function () { throw new Error(errorDetails); }, 500)
         return this.sortableData
       }
       // Sort the array of rows based on the value of the cell index
@@ -59,17 +69,21 @@ export default {
         return this.dataOrderedByKey
       }
       var filterKey = this.filterKey
-      return _.filter(this.dataOrderedByKey, function(row) {
-        // Filter through all rows; within each row check...
-        var rowContainsMatch = false
-        _.forEach(row, function(cell) {
-          // ...and see if  has cells whose text-string contains filterKey
-          if (_.includes(_.lowerCase(cell.text), _.lowerCase(filterKey))) {
-            rowContainsMatch = true
-          }
+      if (filterKey.length < 3) {
+        return this.dataOrderedByKey; // Filtering is CPU heavy for low chars
+      } else {
+        return _.filter(this.dataOrderedByKey, function(row) {
+          // Filter through all rows; within each row check...
+          var rowContainsMatch = false
+          _.forEach(row, function(cell) {
+            // ...and see if  has cells whose text-string contains filterKey
+            if (_.includes(_.lowerCase(cell.text), _.lowerCase(filterKey))) {
+              rowContainsMatch = true
+            }
+          })
+          return rowContainsMatch
         })
-        return rowContainsMatch
-      })
+      }
     }
   }
 }

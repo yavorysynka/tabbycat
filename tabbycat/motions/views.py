@@ -1,13 +1,16 @@
 from django.contrib import messages
 from django.db.models import Q
 from django.forms.models import modelformset_factory
+from django.utils.translation import ugettext as _
+from django.utils.translation import ungettext
 from django.views.generic.base import TemplateView
 
 from actionlog.mixins import LogActionMixin
 from actionlog.models import ActionLogEntry
 from tournaments.mixins import OptionalAssistantTournamentPageMixin, PublicTournamentPageMixin, RoundMixin
 from utils.misc import redirect_round
-from utils.mixins import ModelFormSetView, PostOnlyRedirectView, SuperuserRequiredMixin
+from utils.mixins import SuperuserRequiredMixin
+from utils.views import ModelFormSetView, PostOnlyRedirectView
 
 from .models import Motion
 from .forms import ModelAssignForm
@@ -47,10 +50,30 @@ class EditMotionsView(SuperuserRequiredMixin, LogActionMixin, RoundMixin, ModelF
     # the form processing analogously to FormView, with less decomposition.
     # See also: participants.views.PublicConfirmShiftView.
 
-    template_name = 'edit.html'
+    template_name = 'motions_edit.html'
     action_log_type = ActionLogEntry.ACTION_TYPE_MOTION_EDIT
-    formset_factory_kwargs = dict(can_delete=True, extra=3, exclude=['round'])
     formset_model = Motion
+
+    def get_formset_factory_kwargs(self):
+        tournament = self.get_tournament()
+        excludes = ['round', 'id']
+
+        if not tournament.pref('enable_flagged_motions'):
+            excludes.append('flagged')
+
+        if not tournament.pref('enable_divisions'):
+            excludes.append('divisions')
+
+        nexisting = self.get_formset_queryset().count()
+        if tournament.pref('enable_motions'):
+            delete = True
+            extras = max(3 - nexisting, 0)
+        else:
+            excludes.append('seq')
+            extras = max(1 - nexisting, 0)
+            delete = nexisting > 1  # if there's more than one, allow deletion
+
+        return dict(can_delete=delete, extra=extras, exclude=excludes)
 
     def get_formset_queryset(self):
         return self.get_round().motion_set.all()
@@ -58,14 +81,28 @@ class EditMotionsView(SuperuserRequiredMixin, LogActionMixin, RoundMixin, ModelF
     def formset_valid(self, formset):
         motions = formset.save(commit=False)
         round = self.get_round()
-        for motion in motions:
+        for i, motion in enumerate(motions, start=1):
+            if not self.get_tournament().pref('enable_motions'):
+                motion.seq = i
             motion.round = round
             motion.save()
             self.log_action(content_object=motion)
         for motion in formset.deleted_objects:
             motion.delete()
-        messages.success(self.request, 'The motions have been saved.')
-        return redirect_round('motions-edit', round)
+
+        count = len(motions)
+        if not self.get_tournament().pref('enable_motions') and count == 1:
+            messages.success(self.request, _("The motion has been saved."))
+        elif count > 0:
+            messages.success(self.request, ungettext("%(count)d motion has been saved.",
+                "%(count)d motions have been saved.", count) % {'count': count})
+
+        count = len(formset.deleted_objects)
+        if count > 0:
+            messages.success(self.request, ungettext("%(count)d motion has been deleted.",
+                "%(count)d motions have been deleted.", count) % {'count': count})
+
+        return redirect_round('draw-display', round)
 
 
 class AssignMotionsView(SuperuserRequiredMixin, RoundMixin, ModelFormSetView):
@@ -88,14 +125,14 @@ class AssignMotionsView(SuperuserRequiredMixin, RoundMixin, ModelFormSetView):
 
 class BaseReleaseMotionsView(SuperuserRequiredMixin, LogActionMixin, RoundMixin, PostOnlyRedirectView):
 
-    round_redirect_pattern_name = 'motions-edit'
+    round_redirect_pattern_name = 'draw-display'
 
     def post(self, request, *args, **kwargs):
         round = self.get_round()
         round.motions_released = self.motions_released
-        messages.success(request, self.message_text)
         round.save()
         self.log_action()
+        messages.success(request, self.message_text)
         return super().post(request, *args, **kwargs)
 
 
@@ -103,14 +140,14 @@ class ReleaseMotionsView(BaseReleaseMotionsView):
 
     action_log_type = ActionLogEntry.ACTION_TYPE_MOTIONS_RELEASE
     motions_released = True
-    message_text = "Released the motions. They will now show on the public-facing pages of this website."
+    message_text = _("Released the motion(s).")
 
 
 class UnreleaseMotionsView(BaseReleaseMotionsView):
 
     action_log_type = ActionLogEntry.ACTION_TYPE_MOTIONS_UNRELEASE
     motions_released = False
-    message_text = "Unreleased the motions. They will no longer show on the public-facing pages of this website."
+    message_text = _("Unreleased the motion(s).")
 
 
 class DisplayMotionsView(OptionalAssistantTournamentPageMixin, RoundMixin, TemplateView):
@@ -120,4 +157,5 @@ class DisplayMotionsView(OptionalAssistantTournamentPageMixin, RoundMixin, Templ
 
     def get_context_data(self, **kwargs):
         kwargs['motions'] = self.get_round().motion_set.all()
+        kwargs['infos'] = self.get_round().motion_set.exclude(info_slide="")
         return super().get_context_data(**kwargs)

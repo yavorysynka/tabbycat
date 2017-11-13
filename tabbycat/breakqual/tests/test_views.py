@@ -34,8 +34,8 @@ class PublicESLBreakingTeamsViewTest(BreakingTeamsViewTestMixin, TestCase):
     break_slug = 'esl'
 
 
-class PublicEFLBreakingTeamsViewTest(BreakingTeamsViewTestMixin, TestCase):
-    break_slug = 'efl'
+class PublicNoviceBreakingTeamsViewTest(BreakingTeamsViewTestMixin, TestCase):
+    break_slug = 'novice'
 
 
 class PublicBreakingAdjudicatorsViewTest(ConditionalTableViewTestsMixin, TestCase):

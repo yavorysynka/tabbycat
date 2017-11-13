@@ -1,6 +1,6 @@
 import json
 
-from django.contrib import messages
+from django.utils.translation import ugettext as _
 from django.views.generic.base import TemplateView
 
 from adjfeedback.models import AdjudicatorFeedbackQuestion
@@ -9,7 +9,6 @@ from draw.models import Debate
 from participants.models import Adjudicator
 from tournaments.mixins import OptionalAssistantTournamentPageMixin, RoundMixin, TournamentMixin
 from tournaments.models import Tournament
-from tournaments.utils import get_side_name
 from utils.mixins import LoginRequiredMixin, SuperuserRequiredMixin
 from venues.models import VenueCategory
 
@@ -72,14 +71,6 @@ class PrintFeedbackFormsView(RoundMixin, OptionalAssistantTournamentPageMixin, T
     assistant_page_permissions = ['all_areas', 'results_draw']
     template_name = 'feedback_list.html'
 
-    def has_team_questions(self):
-        return AdjudicatorFeedbackQuestion.objects.filter(
-            tournament=self.get_round().tournament, from_team=True).exists()
-
-    def has_adj_questions(self):
-        return AdjudicatorFeedbackQuestion.objects.filter(
-            tournament=self.get_round().tournament, from_adj=True).exists()
-
     def add_defaults(self):
         t = self.get_tournament()
         default_questions = []
@@ -113,10 +104,10 @@ class PrintFeedbackFormsView(RoundMixin, OptionalAssistantTournamentPageMixin, T
     def construct_info(self, venue, source, source_p, target, target_p):
         source_n = source.name if hasattr(source, 'name') else source.short_name
         return {
-            'room': venue.display_name if venue else '',
-            'authorInstitution': source.institution.code,
-            'author': source_n, 'authorPosition': source_p,
-            'target': target.name, 'targetPosition': target_p
+            'venue': venue.serialize() if venue else '',
+            'authorInstitution': source.institution.code if source.institution else 'Unaffiliated',
+            'author': source_n, 'authorPosition': source_p.upper(),
+            'target': target.name, 'targetPosition': target_p.upper()
         }
 
     def get_team_feedbacks(self, debate, team):
@@ -127,11 +118,11 @@ class PrintFeedbackFormsView(RoundMixin, OptionalAssistantTournamentPageMixin, T
         ballots = []
 
         if team_paths == 'orallist' and debate.adjudicators.chair:
-            ballots.append(self.construct_info(debate.venue, team, "Team",
+            ballots.append(self.construct_info(debate.venue, team, _("Team"),
                                                debate.adjudicators.chair, ""))
         elif team_paths == 'all-adjs':
             for target in debate.debateadjudicator_set.all():
-                ballots.append(self.construct_info(debate.venue, team, "Team",
+                ballots.append(self.construct_info(debate.venue, team, _("Team"),
                                                    target.adjudicator, ""))
 
         return ballots
@@ -154,18 +145,8 @@ class PrintFeedbackFormsView(RoundMixin, OptionalAssistantTournamentPageMixin, T
         draw = self.get_round().debate_set_with_prefetches(ordering=('venue__name',))
         # Sort by venue categories to ensure it matches the draw
         draw = sorted(draw, key=lambda d: d.venue.display_name if d.venue else "")
-        message = ""
-        ballots = []
-        if not self.has_team_questions():
-            message += "No feedback questions have been added " + \
-                       "for teams on adjudicators."
-        if not self.has_adj_questions():
-            message += "No feedback questions have been added " + \
-                       "for adjudicators on adjudicators. "
-        if message is not "":
-            messages.warning(self.request, message + "Check the " +
-                "documentation for information on how to add these.")
 
+        ballots = []
         for debate in draw:
             for team in debate.teams:
                 ballots.extend(self.get_team_feedbacks(debate, team))
@@ -173,43 +154,39 @@ class PrintFeedbackFormsView(RoundMixin, OptionalAssistantTournamentPageMixin, T
 
         kwargs['ballots'] = json.dumps(ballots)
         kwargs['questions'] = json.dumps(self.questions_dict())
+
+        kwargs['team_questions_exist'] = self.get_tournament().adjudicatorfeedbackquestion_set.filter(from_team=True).exists()
+        kwargs['adj_questions_exist'] = self.get_tournament().adjudicatorfeedbackquestion_set.filter(from_adj=True).exists()
+
         return super().get_context_data(**kwargs)
 
 
-class PrintScoreSheetsView(RoundMixin, OptionalAssistantTournamentPageMixin, TemplateView):
+class PrintScoresheetsView(RoundMixin, OptionalAssistantTournamentPageMixin, TemplateView):
 
     assistant_page_permissions = ['all_areas']
     template_name = 'scoresheet_list.html'
 
+    def add_ballot_data(self, adj, debate_info):
+        ballot_data = {
+            'author': adj['adjudicator']['name'],
+            'authorInstitution': adj['adjudicator']['institution']['code'],
+            'authorPosition': adj['position'],
+        }
+        ballot_data.update(debate_info)  # Extend with debateInfo keys
+        return ballot_data
+
     def get_context_data(self, **kwargs):
         motions = self.get_round().motion_set.order_by('seq')
-        tournament = self.get_tournament()
         draw = self.get_round().debate_set_with_prefetches(ordering=('venue__name',))
-        show_emoji = tournament.pref('show_emoji')
 
         # Sort by venue categories to ensure it matches the draw
         draw = sorted(draw, key=lambda d: d.venue.display_name if d.venue else "")
 
         ballots = []
         for debate in draw:
-            debate_info = {
-                'room': debate.venue.display_name if debate.venue else '',
-                'aff': debate.aff_team.short_name,
-                'affEmoji': debate.aff_team.emoji if debate.aff_team.emoji and show_emoji else '',
-                'affSpeakers': [s.name for s in debate.aff_team.speakers],
-                'neg': debate.neg_team.short_name,
-                'negEmoji': debate.neg_team.emoji if debate.neg_team.emoji and show_emoji else '',
-                'negSpeakers': [s.name for s in debate.neg_team.speakers],
-                'panel': []
-            }
-            for adj, position in debate.adjudicators.with_positions():
-                debate_info['panel'].append({
-                    'name': adj.name,
-                    'institution': adj.institution.code,
-                    'position': position
-                })
+            debate_info = debate.serialize()
 
-            if len(debate_info['panel']) is 0:
+            if len(debate_info['debateAdjudicators']) is 0:
                 ballot_data = {
                     'author': "_______________________________________________",
                     'authorInstitution': "",
@@ -218,21 +195,15 @@ class PrintScoreSheetsView(RoundMixin, OptionalAssistantTournamentPageMixin, Tem
                 ballot_data.update(debate_info)  # Extend with debateInfo keys
                 ballots.append(ballot_data)
             else:
-                for adj in (a for a in debate_info['panel'] if a['position'] != "t"):
-                    ballot_data = {
-                        'author': adj['name'],
-                        'authorInstitution': adj['institution'],
-                        'authorPosition': adj['position'],
-                    }
-                    ballot_data.update(debate_info)  # Extend with debateInfo keys
-                    ballots.append(ballot_data)
+                for adj in (a for a in debate_info['debateAdjudicators'] if a['position'] == "C"):
+                    ballots.append(self.add_ballot_data(adj, debate_info))
+                if self.get_tournament().pref('ballots_per_debate') == 'per-adj':
+                    for adj in (a for a in debate_info['debateAdjudicators'] if a['position'] == "P"):
+                        ballots.append(self.add_ballot_data(adj, debate_info))
 
         kwargs['ballots'] = json.dumps(ballots)
         kwargs['motions'] = json.dumps([
             {'seq': m.seq, 'text': m.text} for m in motions])
-        kwargs['positions'] = json.dumps([
-            get_side_name(tournament, "aff", "full").title(),
-            get_side_name(tournament, "neg", "full").title()])
         return super().get_context_data(**kwargs)
 
 
@@ -246,9 +217,9 @@ class PrintableRandomisedURLs(TournamentMixin, SuperuserRequiredMixin, TemplateV
         kwargs['tournament_slug'] = tournament.slug
 
         if not tournament.pref('share_adjs'):
-            kwargs['adjs'] = tournament.adjudicator_set.all().order_by('name')
+            kwargs['adjs'] = tournament.adjudicator_set.filter(url_key__isnull=False).order_by('institution__name', 'name')
         else:
-            kwargs['adjs'] = Adjudicator.objects.all().order_by('name')
+            kwargs['adjs'] = Adjudicator.objects.filter(url_key__isnull=False).order_by('institution__name', 'name')
 
         kwargs['exists'] = tournament.adjudicator_set.filter(url_key__isnull=False).exists() or \
             tournament.team_set.filter(url_key__isnull=False).exists()
@@ -262,7 +233,7 @@ class PrintFeedbackURLsView(PrintableRandomisedURLs):
 
     def get_context_data(self, **kwargs):
         tournament = self.get_tournament()
-        kwargs['teams'] = tournament.team_set.all().order_by('institution', 'reference')
+        kwargs['teams'] = tournament.team_set.filter(url_key__isnull=False).order_by('institution', 'reference')
         return super().get_context_data(**kwargs)
 
 

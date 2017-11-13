@@ -3,6 +3,7 @@ import logging
 
 from django import forms
 from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.utils.translation import ugettext as _
 
 from participants.models import Adjudicator, Institution, Speaker, Team
@@ -39,6 +40,9 @@ class NumberForEachInstitutionForm(forms.Form):
     def _create_fields(self):
         """Dynamically generate one integer field for each institution, for the
         user to indicate how many teams are from that institution."""
+        self.fields['no_institution'] = forms.IntegerField(
+                    min_value=0, label=_("Unaffiliated (i.e. no Institution)"), required=False,
+                    widget=forms.NumberInput(attrs={'placeholder': 0}))
         for institution in self.institutions:
             label = _("%(name)s (%(code)s)") % {'name': institution.name, 'code': institution.code}
             self.fields['number_institution_%d' % institution.id] = forms.IntegerField(
@@ -171,7 +175,7 @@ class BaseInstitutionObjectDetailsForm(BaseTournamentObjectDetailsForm):
     # institution ID in a hidden field makes the client send it with the form,
     # keeping the information in a submission consistent.
     institution = forms.ModelChoiceField(queryset=Institution.objects.all(),
-            widget=forms.HiddenInput)
+                                         widget=forms.HiddenInput, required=False)
 
     def __init__(self, tournament, *args, **kwargs):
         super().__init__(tournament, *args, **kwargs)
@@ -180,17 +184,19 @@ class BaseInstitutionObjectDetailsForm(BaseTournamentObjectDetailsForm):
         # not used anywhere in the form logic.
         institution_id = self.initial.get('institution')
         if institution_id is None:
-            institution_id = self.data.get(self.add_prefix('institution'))
-        try:
-            self.institution_for_display = Institution.objects.get(id=institution_id)
-        except Institution.DoesNotExist:
-            logger.error("Could not find institution from initial or data")
+            self.institution_for_display = None # Adding unaffiliated teams/adjs
+        else:
+            try:
+                self.institution_for_display = Institution.objects.get(id=institution_id)
+            except Institution.DoesNotExist:
+                logger.error("Could not find institution from initial or data")
 
 
 class TeamDetailsForm(BaseInstitutionObjectDetailsForm):
     """Adds provision for a textarea input for speakers."""
 
     speakers = forms.CharField(required=True) # widget is set in form constructor
+    emails = forms.CharField(required=False) # widget is set in form constructor
     short_reference = forms.CharField(widget=forms.HiddenInput, required=False) # doesn't actually do anything, just placeholder to avoid validation failure
 
     class Meta:
@@ -204,21 +210,39 @@ class TeamDetailsForm(BaseInstitutionObjectDetailsForm):
     def __init__(self, tournament, *args, **kwargs):
         super().__init__(tournament, *args, **kwargs)
 
+        if self.institution_for_display is None:
+            self.fields.pop('use_institution_prefix') # For Instition-less teams
+
         # Set speaker widget to match tournament settings
         nspeakers = tournament.pref('substantive_speakers')
         self.fields['speakers'].widget = forms.Textarea(attrs={'rows': nspeakers,
                 'placeholder': _("One speaker's name per line")})
         self.initial.setdefault('speakers', "\n".join(
                 _("Speaker %d") % i for i in range(1, nspeakers+1)))
+        self.fields['emails'].widget = forms.Textarea(attrs={'rows': nspeakers,
+                'placeholder': _("Optional; used for Private URLs. Format with one email address per line")})
+
+    def clean_details(self, field_name):
+        # Split into list of names or emails; removing blank lines.
+        items = self.cleaned_data[field_name].split('\n')
+        items = [item.strip() for item in items]
+        items = [item for item in items if item]
+        return items
 
     def clean_speakers(self):
-        # Split into list of names, removing blank lines.
-        names = self.cleaned_data['speakers'].split('\n')
-        names = [name.strip() for name in names]
-        names = [name for name in names if name]
+        names = self.clean_details('speakers')
         if len(names) == 0:
             self.add_error('speakers', _("There must be at least one speaker."))
         return names
+
+    def clean_emails(self):
+        emails = self.clean_details('emails')
+        for email in emails:
+            try:
+                validate_email(email)
+            except ValidationError as e:
+                self.add_error('emails', _("An email address is invalid."))
+        return emails
 
     def clean_short_reference(self):
         # Ignore the actual field value, and replace with the (long) reference.
@@ -229,7 +253,7 @@ class TeamDetailsForm(BaseInstitutionObjectDetailsForm):
 
     def _post_clean_speakers(self):
         """Validates the Speaker instances that would be created."""
-        for name in self.cleaned_data.get('speakers', []):
+        for i, name in enumerate(self.cleaned_data.get('speakers', [])):
             try:
                 speaker = Speaker(name=name)
                 speaker.full_clean(exclude=('team',))
@@ -248,8 +272,13 @@ class TeamDetailsForm(BaseInstitutionObjectDetailsForm):
 
         if commit:
             team.save()
-            for name in self.cleaned_data['speakers']:
-                team.speaker_set.create(name=name)
+            emails = self.cleaned_data['emails']
+            for i, name in enumerate(self.cleaned_data['speakers']):
+                try:
+                    email = emails[i]
+                except IndexError:
+                    email = None
+                team.speaker_set.create(name=name, email=email)
             team.break_categories.set(team.tournament.breakcategory_set.filter(is_general=True))
 
         return team
@@ -270,7 +299,7 @@ class AdjudicatorDetailsForm(SharedBetweenTournamentsObjectForm, BaseInstitution
 
     class Meta:
         model = Adjudicator
-        fields = ('name', 'test_score', 'institution')
+        fields = ('name', 'test_score', 'institution', 'email')
         labels = {
             'test_score': _("Rating"),
         }

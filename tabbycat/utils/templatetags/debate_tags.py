@@ -35,31 +35,6 @@ def version(path_string, base_url=settings.MEDIA_URL):
         return base_url + path_string
 
 
-# TODO: deprecate when old allocations UI is
-@register.simple_tag
-def team_status_classes(team):
-    classes = list()
-    if team.region is not None:
-        classes.append("region-%s" % team.region.id)
-    for category in team.break_categories_nongeneral.order_by('priority'):
-        classes.append("breakcategory-" + category.slug)
-    return " ".join(classes)
-
-
-@register.simple_tag
-def debate_draw_status_class(debate):
-    if debate.aff_team and debate.aff_team.type == 'B':
-        return "active text-muted"
-    elif debate.neg_team and debate.neg_team.type == 'B':
-        return "active text-muted"
-    elif debate.result_status == "P":
-        return "active text-muted"
-    elif debate.confirmed_ballot and debate.confirmed_ballot.forfeit:
-        return "active text-muted"
-
-    return ""
-
-
 @register.simple_tag
 def tournament_side_names(tournament, name_type):
     side_names = [get_side_name(tournament, 'aff', name_type),
@@ -245,6 +220,11 @@ def divide_to_int(number_a, number_b):
 @register.simple_tag
 def percentage(number_a, number_b):
     if number_b > 0:
-        return number_a / number_b * 100
+        return number_a / number_b * 100 # Used for progress bars
     else:
         return 0
+
+
+@register.simple_tag
+def subtract(number_a, number_b):
+    return number_a - number_b # Used in Feedback Overview

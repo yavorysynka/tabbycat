@@ -4,18 +4,18 @@
 Installing Locally on Linux
 ===========================
 
-.. admonition:: Is this the best install method for you?
+.. admonition:: Is this the best installation method for you?
   :class: attention
 
   In most cases, we recommend doing an :ref:`internet-based installation on Heroku <install-heroku>` instead. If you decide to do a local installation, be sure to read our page on :ref:`local installations <install-local>` to help you understand what's going on, particularly this section: :ref:`install-decision`
 
-  If you just want to quickly set up a copy of Tabbycat to run locally on Linux, we recommend :ref:`installing using Docker<install-docker>`, which is much easier than the process below.
+  If you just want to quickly set up a copy of Tabbycat to run locally on Linux, consider :ref:`installing using Docker<install-docker>`, which is a shorter process than the one below.
 
 
 Requisite technical background
 ==============================
 
-You need to be familiar with command-line interfaces to get through this comfortably. While a background in the specific tools (Python, *etc.*) we use will make things easier for you, it's not necessary: we'll talk you through the rest.
+You need to be familiar with command-line interfaces to get through this comfortably. While a background in the specific tools Tabbycat uses (Python, PostgreSQL, *etc.*) will make things easier, it's not necessary: we'll talk you through the rest.
 
 .. admonition:: Advanced users
   :class: tip
@@ -26,15 +26,15 @@ Short version
 =============
 .. parsed-literal::
 
-  curl -sL https\:\/\/deb.nodesource.com/setup_5.x | sudo -E bash -    # add Node.js source repository
+  curl -sL https\:\/\/deb.nodesource.com/setup_6.x | sudo -E bash -    # add Node.js source repository
   sudo apt-get install python3-dev python3-venv postgresql-9.6 postgresql-server-dev-9.6 nodejs
 
   # either
-  wget https\:\/\/github.com/czlee/tabbycat/archive/|vrelease|.tar.gz
+  wget https\:\/\/github.com/TabbycatDebate/tabbycat/archive/|vrelease|.tar.gz
   tar xf |vrelease|.tar.gz
   cd tabbycat-|release|
   # or
-  git clone https\:\/\/github.com/czlee/tabbycat.git
+  git clone https\:\/\/github.com/TabbycatDebate/tabbycat.git
   git checkout |vrelease|                                         # or master
 
   sudo -u postgres createuser myusername --pwprompt           # skip if not first time
@@ -49,9 +49,10 @@ Then create local_settings.py as described :ref:`below <local-settings-linux>`, 
   npm install
   cd tabbycat
   dj migrate
+  npm run gulp build
   dj collectstatic
   dj createsuperuser
-  waitress-serve wsgi:application
+  dj runserver
 
 1. Install dependencies
 =======================
@@ -103,7 +104,7 @@ Tabbycat requires Node and its package manager to compile front-end dependencies
 .. parsed-literal::
 
   $ sudo apt-get install curl
-  $ curl -sL https://deb.nodesource.com/setup_5.x | sudo -E bash -
+  $ curl -sL https://deb.nodesource.com/setup_6.x | sudo -E bash -
   $ sudo apt-get install -y nodejs
   $ sudo ln -s /usr/bin/nodejs /usr/bin/node
 
@@ -116,7 +117,7 @@ Download and extract:
 
 .. parsed-literal::
 
-    $ wget https\:\/\/github.com/czlee/tabbycat/archive/|vrelease|.tar.gz
+    $ wget https\:\/\/github.com/TabbycatDebate/tabbycat/archive/|vrelease|.tar.gz
     $ tar xf |vrelease|.tar.gz
     $ cd tabbycat-|release|
 
@@ -124,7 +125,7 @@ If you've used Git before, you might prefer to clone `our GitHub repository`_ in
 
 .. parsed-literal::
 
-    $ git clone https\:\/\/github.com/czlee/tabbycat.git
+    $ git clone https\:\/\/github.com/TabbycatDebate/tabbycat.git
     $ git checkout |vrelease|                              # or master
 
 .. tip:: You might like to fork the repository first, to give yourself a little more freedom to make code changes on the fly (and potentially :ref:`contribute <contributing>` them to the project).
@@ -194,6 +195,7 @@ Almost there!
 
     $ cd tabbycat
     $ dj migrate
+    $ npm run gulp build
     $ dj collectstatic
     $ dj createsuperuser
 
@@ -201,13 +203,13 @@ Almost there!
 
   ::
 
-    $ waitress-serve wsgi:application
+    $ dj runserver
 
   It should show something like this::
 
-    serving on http://0.0.0.0:8080
+    serving on http://127.0.0.1:8000
 
-8. Open your browser and go to the URL printed above. (In the above example, it's http://0.0.0.0:8080.) It should look something like the screenshot below. If it does, great! You've successfully installed Tabbycat.
+8. Open your browser and go to the URL printed above. (In the above example, it's http://127.0.0.1:8000.) It should look something like the screenshot below. If it does, great! You've successfully installed Tabbycat.
 
   .. image:: images/tabbycat-bare-linux.png
       :alt: Bare Tabbycat installation
@@ -220,5 +222,4 @@ To start your Tabbycat instance up again next time you use your computer::
 
     $ cd path/to/my/tabbycat/directory
     $ source venv/bin/activate
-    $ cd tabbycat
-    $ waitress-serve wsgi:application
+    $ dj runserver

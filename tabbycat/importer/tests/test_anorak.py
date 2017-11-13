@@ -17,8 +17,8 @@ import participants.models as pm
 import tournaments.models as tm
 import venues.models as vm
 
-from ..anorak import AnorakTournamentDataImporter
-from ..base import TournamentDataImporterError
+from ..importers.anorak import AnorakTournamentDataImporter
+from ..importers import TournamentDataImporterError
 
 
 class TestImporterAnorak(TestCase):
@@ -62,15 +62,11 @@ class TestImporterAnorak(TestCase):
         self.assertCountsDictEqual(self.importer.counts, {tm.Round: 10})
         self.assertFalse(self.importer.errors)
 
-    def test_auto_make_rounds(self):
-        self.importer.auto_make_rounds(7)
-        self.assertEqual(self.t.round_set.count(), 7)
-
     def test_venues(self):
         f = self._open_csv_file(self.TESTDIR, "venues")
         self.importer.import_venues(f)
-        self.assertCountsDictEqual(self.importer.counts, {vm.VenueCategory: 8, vm.Venue: 23,
-                vm.VenueCategory.venues.through: 22})
+        self.assertCountsDictEqual(self.importer.counts, {vm.VenueCategory: 8, vm.Venue: 24,
+                vm.VenueCategory.venues.through: 23})
         self.assertFalse(self.importer.errors)
 
     def test_institutions(self):
@@ -97,7 +93,7 @@ class TestImporterAnorak(TestCase):
     def test_adjudicators(self):
         self.test_speakers()
         self.importer.reset_counts()
-        f = self._open_csv_file(self.TESTDIR, "judges")
+        f = self._open_csv_file(self.TESTDIR, "adjudicators")
         self.importer.import_adjudicators(f)
         self.assertCountsDictEqual(self.importer.counts, {
             pm.Adjudicator: 27,
@@ -117,7 +113,7 @@ class TestImporterAnorak(TestCase):
         self.assertFalse(self.importer.errors)
 
     def test_adj_feedback_questions(self):
-        f = self._open_csv_file(self.TESTDIR, "questions")
+        f = self._open_csv_file(self.TESTDIR, "adj_feedback_questions")
         self.importer.import_adj_feedback_questions(f)
         self.assertCountsDictEqual(self.importer.counts, {fm.AdjudicatorFeedbackQuestion: 11})
         self.assertFalse(self.importer.errors)

@@ -2,61 +2,58 @@
 Tournament History
 ==================
 
-A partial list of tournaments (that we know of) which have used Tabbycat.
+A partial list of major national and international tournaments (that we know of) which have used Tabbycat.
 
 2017
 ----
 
-- `Australian Easters <https://easters2017.herokuapp.com>`_
+- `APU Philosophy CHallenge <https://apuphil.herokuapp.com/>`_
+- `ANU Spring IV <https://anus2017.herokuapp.com>`_
+- `Wollongong Easters <https://easters2017.herokuapp.com>`_
+- `Australasian Wom*ns Debating Championships <http://awdc2017.herokuapp.com/>`_
+- Asia World Schools Debating Championship
+- `Asia British Parliamentary Championships <http://abp2017.herokuapp.com/>`_
+- `Cambridge Asian Schools BP Championships <https://abc2017.herokuapp.com/>`_
+- Cambodia United Asian Debating Championship
+- `Kings College London IV <http://kcliv2017.herokuapp.com>`_
+- `KPU Pro Ams <https://kduproams2017.herokuapp.com/kduproams2017/>`_
 - `New Zealand Easters <https://nzeasters2017.herokuapp.com>`_
-- `UQ Australs <https://australs2017.herokuapp.com> `
+- `Swords Mini-Gong <https://minigong2017.herokuapp.com/>`_
+- `UCD Law Society IV <https://ucdlawsociv.herokuapp.com>`_
+- `UCD Vice President's Cup <https://ucdlawsociv.herokuapp.com>`_
+- `UQ Australs <https://australs2017.herokuapp.com>`_
+- `UT MARA Open <http://maraopen2017.herokuapp.com>`_
+- `Victoria Cup IV <https://viccup2017.herokuapp.com>`_
+- `Western Sydney BP Championship <https://wsbp2017.herokuapp.com>`_
+- `Yale IV <http://yaleiv2017.herokuapp.com/>`_
 
 2016
 ----
 
-- ACT Debating Union Grades
-- `Australian Easters <http://easters2016.herokuapp.com>`_
-- `Canton IV <http://cantoniv2016.herokuapp.com/civ2016/>`_
-- IIT KGP PD
-- `Joynt Scroll <https://joyntscroll2016.herokuapp.com>`_
-- `Malaysia Debate Open 2016 <http://tabs.altairtechlab.com/malaysiadebateopen2016/192.168.1.134_8080/t/mdo2016/index.html>`_
-- `Mad Mini <http://tabs.monashdebaters.com/t/madmini/>`_
-- `New Zealand Easters <http://nzeasters2016.herokuapp.com>`_
+- `Sydney Easters <http://easters2016.herokuapp.com>`_
+- `Joynt Scroll 2016 <https://joyntscroll2016.herokuapp.com>`_
+- `Malaysia Debate Open <http://tabs.altairtechlab.com/malaysiadebateopen2016/192.168.1.134_8080/t/mdo2016/index.html>`_
+- `New Zealand Easters 2016 <http://nzeasters2016.herokuapp.com>`_
 - `Perth Australs <http://australs2016.herokuapp.com>`_
-- Pre SSIDC
 - `Thailand United Asian Debating Championships <http://uadc2016.herokuapp.com>`_
 - The National Law School Debate
 - The Khazak National Schools Debating Championship
-- `The Western Australian Debating League <http://draw.wadl.org>`_
-- The Western Sydney Open
-- `USU Grand Slam <http://usutabs.herokuapp.com/t/grandslam2016/>`_
 
 2015
 ----
 
-- ACT Debating Union Grades
-- `Another Day at Melbourne <http://mudstab.herokuapp.com>`_
-- `ANU Pre-Australs <http://anupreaust2015.herokuapp.com>`_
-- ALSA E-Comp
-- `Auckland Schools Regionals <http://aucklandregionals2015.herokuapp.com>`_
 - `Bali United Asian Debating Championships <http://tabs.altairtechlab.com/baliuadc2015/t/baliuadc/index.html>`_
 - `Daejeon Australs <http://tab.australasians2015.org>`_
-- `Derozio Memorial Debate <http://dmd2015.herokuapp.com>`_
 - `Joynt Scroll <http://joyntscroll2015.herokuapp.com/t/joynt/>`_
 - `Malaysia Debate Open <http://tabs.altairtechlab.com/malaysiadebateopen2015/>`_
-- `Mad Mini <http://tabs.monashdebaters.com/t/mad-mini-2015/>`_
-- `President's Cup <http://tabs.monashdebaters.com/t/presidents-cup-2015/>`_
-- `RMIT Women's Open <http://radtabs.herokuapp.com>`_
 - `New Zealand Easters <https://nzeasters2015.herokuapp.com>`_
-- `The Western Australian Debating League <http://draw.wadl.org>`_
 - The National Law School Debate
 - `UNSW/UTS Easters <https://aueasters2015.herokuapp.com>`_
 
 2014
 ----
 
-- Another Day at Melbourne
-- `Joynt Scroll <http://joyntscroll2014.herokuapp.com>`_
+- `Joynt Scroll 2014 <http://joyntscroll2014.herokuapp.com>`_
 - NTU United Asian Debating Championships
 - `Otago Australs <http://australs2014.herokuapp.com>`_
 

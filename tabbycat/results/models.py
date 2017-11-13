@@ -114,11 +114,6 @@ class BallotSubmission(Submission):
                 "{0.timestamp:%Y-%m-%dT%H:%M:%S} (v{0.version})").format(self)
 
     @property
-    def ballot_set(self):
-        # Remove after 15/7/2017
-        raise RuntimeError("Debate.ballot_set is deprecated, use Debate.result instead.")
-
-    @property
     def result(self):
         if not hasattr(self, "_result"):
             self._result = DebateResult(self)
@@ -127,7 +122,7 @@ class BallotSubmission(Submission):
     def clean(self):
         # The motion must be from the relevant round
         super().clean()
-        if self.motion.round != self.debate.round:
+        if self.motion is not None and self.motion.round != self.debate.round:
             raise ValidationError(_("Debate is in round %(round)d but motion (%(motion)s) is "
                     "from round %(motion_round)d") % {
                     'round': self.debate.round,
@@ -186,7 +181,8 @@ class TeamScore(models.Model):
     debate_team = models.ForeignKey('draw.DebateTeam', models.CASCADE, db_index=True,
         verbose_name=_("debate team"))
 
-    points = models.PositiveSmallIntegerField(verbose_name=_("points"))
+    points = models.PositiveSmallIntegerField(null=True, blank=True,
+        verbose_name=_("points"))
     win = models.NullBooleanField(null=True, blank=True,
         verbose_name=_("win"))
     margin = ScoreField(null=True, blank=True,

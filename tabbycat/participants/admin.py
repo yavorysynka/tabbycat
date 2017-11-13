@@ -1,5 +1,7 @@
 from django.contrib import admin
 from django import forms
+from django.utils.translation import ungettext
+from django.utils.translation import ugettext_lazy as _
 
 from draw.models import TeamSideAllocation
 from adjallocation.models import AdjudicatorAdjudicatorConflict, AdjudicatorConflict, AdjudicatorInstitutionConflict
@@ -9,45 +11,50 @@ from tournaments.models import Tournament
 from venues.admin import VenueConstraintInline
 
 from .emoji import pick_unused_emoji
-from .models import Adjudicator, Institution, Region, Speaker, Team
+from .models import Adjudicator, Institution, Region, Speaker, SpeakerCategory, Team
 
 
 # ==============================================================================
 # Region
 # ==============================================================================
 
+@admin.register(Region)
 class RegionAdmin(admin.ModelAdmin):
     pass
-
-
-admin.site.register(Region, RegionAdmin)
 
 
 # ==============================================================================
 # Institution
 # ==============================================================================
 
+@admin.register(Institution)
 class InstitutionAdmin(admin.ModelAdmin):
-    list_display = ('name', 'code', 'abbreviation', 'region')
+    list_display = ('name', 'code', 'region')
     ordering = ('name', )
     search_fields = ('name', )
-
-
-admin.site.register(Institution, InstitutionAdmin)
 
 
 # ==============================================================================
 # Speaker
 # ==============================================================================
 
+@admin.register(Speaker)
 class SpeakerAdmin(admin.ModelAdmin):
     list_filter = ('team__tournament',)
-    list_display = ('name', 'team', 'novice', 'esl', 'efl', 'gender')
+    list_display = ('name', 'team', 'gender')
     search_fields = ('name', )
     raw_id_fields = ('team', )
 
 
-admin.site.register(Speaker, SpeakerAdmin)
+# ==============================================================================
+# Speaker
+# ==============================================================================
+
+@admin.register(SpeakerCategory)
+class SpeakerCategoryAdmin(admin.ModelAdmin):
+    list_display = ('name', 'slug', 'seq', 'tournament', 'limit', 'public')
+    list_filter = ('tournament', )
+    ordering = ('tournament', 'seq')
 
 
 # ==============================================================================
@@ -56,7 +63,7 @@ admin.site.register(Speaker, SpeakerAdmin)
 
 class SpeakerInline(admin.TabularInline):
     model = Speaker
-    fields = ('name', 'gender')
+    fields = ('name', 'email', 'gender')
 
 
 class TeamSideAllocationInline(admin.TabularInline):
@@ -73,6 +80,7 @@ class TeamForm(forms.ModelForm):
         return self.cleaned_data['url_key'] or None
 
 
+@admin.register(Team)
 class TeamAdmin(admin.ModelAdmin):
     form = TeamForm
     list_display = ('long_name', 'short_name', 'emoji', 'institution',
@@ -82,6 +90,7 @@ class TeamAdmin(admin.ModelAdmin):
     list_filter = ('tournament', 'division', 'institution', 'break_categories')
     inlines = (SpeakerInline, TeamSideAllocationInline, VenueConstraintInline)
     raw_id_fields = ('division', )
+    actions = ['delete_url_key']
 
     def get_queryset(self, request):
         return super(TeamAdmin, self).get_queryset(request).prefetch_related(
@@ -98,7 +107,15 @@ class TeamAdmin(admin.ModelAdmin):
             kwargs["initial"] = BreakCategory.objects.filter(is_general=True)
         return super().formfield_for_manytomany(db_field, request, **kwargs)
 
-admin.site.register(Team, TeamAdmin)
+    def delete_url_key(self, request, queryset):
+        updated = queryset.update(url_key=None)
+        message = ungettext(
+            "%(count)d team had its URL key removed.",
+            "%(count)d teams had their URL keys removed.",
+            updated
+        ) % {'count': updated}
+        self.message_user(request, message)
+    delete_url_key.short_description = _("Delete URL key")
 
 
 # ==============================================================================
@@ -134,22 +151,27 @@ class AdjudicatorForm(forms.ModelForm):
         fields = '__all__'
 
     def clean_url_key(self):
-        return self.cleaned_data[
-            'url_key'] or None  # So that the url key can be unique and be blank
+        # So that the url key can be unique and be blank
+        return self.cleaned_data['url_key'] or None
 
 
+@admin.register(Adjudicator)
 class AdjudicatorAdmin(admin.ModelAdmin):
     form = AdjudicatorForm
-    list_display = ('name', 'institution', 'tournament', 'novice',
+    list_display = ('name', 'institution', 'tournament', 'trainee',
                     'independent', 'adj_core', 'gender')
-    search_fields = ('name',
-                     'tournament__name',
-                     'institution__name',
-                     'institution__code', )
-    list_filter = ('tournament', 'name')
+    search_fields = ('name', 'tournament__name', 'institution__name', 'institution__code')
+    list_filter = ('tournament', 'name', 'institution')
     inlines = (AdjudicatorConflictInline, AdjudicatorInstitutionConflictInline,
-               AdjudicatorAdjudicatorConflictInline,
-               AdjudicatorTestScoreHistoryInline)
+               AdjudicatorAdjudicatorConflictInline, AdjudicatorTestScoreHistoryInline)
+    actions = ['delete_url_key']
 
-
-admin.site.register(Adjudicator, AdjudicatorAdmin)
+    def delete_url_key(self, request, queryset):
+        updated = queryset.update(url_key=None)
+        message = ungettext(
+            "%(count)d adjudicator had their URL key removed.",
+            "%(count)d adjudicators had their URL keys removed.",
+            updated
+        ) % {'count': updated}
+        self.message_user(request, message)
+    delete_url_key.short_description = _("Delete URL key")

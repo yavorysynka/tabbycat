@@ -45,7 +45,8 @@ class Venue(models.Model):
         return display_name
 
     def serialize(self):
-        venue = {'id': self.id, 'name': self.name, 'priority': self.priority, 'locked': False}
+        venue = {'id': self.id, 'name': self.name, 'display_name': self.display_name,
+                 'priority': self.priority, 'locked': False}
         venue['categories'] = [{
             'id': vc.id, 'name': vc.name, 'description': vc.description
         } for vc in self.venuecategory_set.all()]
@@ -144,11 +145,12 @@ class VenueConstraint(models.Model):
 
     def serialize(self):
         constraint = model_to_dict(self)
-        constraint['subject_type'] = self.subject_content_type.name
-        if self.subject_content_type.name == 'team':
-            constraint['subject_name'] = self.subject.short_name
-        elif self.subject_content_type.name == 'adjudicator':
-            constraint['subject_name'] = self.subject.name
-        elif self.subject_content_type.name == 'institution':
-            constraint['subject_name'] = self.subject.code
+        if hasattr(self, 'subject_content_type'):
+            constraint['subject_type'] = self.subject_content_type.name
+            if self.subject_content_type.name == 'team':
+                constraint['subject_name'] = self.subject.short_name
+            elif self.subject_content_type.name == 'adjudicator':
+                constraint['subject_name'] = self.subject.name
+            elif self.subject_content_type.name == 'institution':
+                constraint['subject_name'] = self.subject.code
         return constraint

@@ -9,14 +9,14 @@ Feel free to `join our Facebook group <https://www.facebook.com/groups/tabbycat.
 Feedback and ideas
 ==================
 
-These can be added as issues in the `GitHub repository <https://github.com/czlee/tabbycat/issues>`_; posts in our `Facebook group <https://www.facebook.com/groups/tabbycat.debate/>`_; or as an :ref:`email to the developers <authors>`.
+These can be added as issues in the `GitHub repository <https://github.com/TabbycatDebate/tabbycat/issues>`_; posts in our `Facebook group <https://www.facebook.com/groups/tabbycat.debate/>`_; or as an :ref:`email to the developers <authors>`.
 
 Bug reports
 ===========
 
-Please report bugs by opening a new issue in our `GitHub repository <https://github.com/czlee/tabbycat/issues>`_. It is most helpful if you can include:
+Please report bugs by opening a new issue in our `GitHub repository <https://github.com/TabbycatDebate/tabbycat/issues>`_. It is most helpful if you can include:
 
-- How Tabbycat was installed (on Heroku, locally on OS X, `etc.`)
+- How Tabbycat was installed (on Heroku, locally on macOS, `etc.`)
 - Any details about your tournament and setup that might be helpful in troubleshooting
 - Detailed steps for how to reproduce the bug
 
@@ -30,6 +30,9 @@ Getting started with development
     - A number of our tests use `Selenium <http://selenium-python.readthedocs.io>`_ and `ChromeDriver <https://sites.google.com/a/chromium.org/chromedriver/>`_ to simulate in-browser functionality. They will fail if you do not have the Chrome browser installed.
 
 - By default the development server's build process will broadcast livereload events; installing one of their `browser plugins <http://livereload.com/extensions/>`_ can make testing front-end changes easier.
+- A number of extra dependencies are required for running tests, linting, and serving the documentation. These can be installed with::
+
+    $ pip install -r 'requirements_development.txt'
 
 Style guide
 ===========
@@ -45,6 +48,8 @@ For stylesheets, we use `stylelint <https://stylelint.io>`_ to enforce the `AirB
 For javascript, we use `eslint <http://eslint.org/>`_ to enforce the `AirBnB javascript  styleguide <https://github.com/airbnb/javascript>`_. The relevant code can be checked by using::
 
     $ npm run eslint
+
+For the front end interface design there is a style guide available at "/style/" once a tournament has been setup.
 
 Versioning convention
 =====================
@@ -66,11 +71,7 @@ Documentation
 
 Documentation is created using `Sphinx <http://sphinx-doc.org/>`_ and hosted at `Read The Docs <https://readthedocs.org>`_. Pushes to ``develop`` will update the *latest* documentation set, while pushes to ``master`` will update the *stable* documentation set.
 
-To preview the documentation locally, install the docs-specific requirements (from the base folder)::
-
-    $ pip install -r 'docs/requirements.txt'
-
-Then start the server::
+To preview the documentation locally, install the development dependencies and then  start the server::
 
     $ sphinx-autobuild docs docs/_build/html --port 7999
 
@@ -95,9 +96,14 @@ Release Checklist
 1. Check that all migrations have been generated and committed into Git
 2. Bump version number in ``docs/conf.py``
 3. Bump version number and (if applicable) codename in ``tabbycat/settings.py``
-4. Update the main ``CHANGELOG.rst`` file
-5. Check that the last Travis CI build passed
-6. Check that ``deploy_heroku.py`` still works
+4. Update the main ``CHANGELOG.rst`` file (including release date)
+5. Check the major current deployment options, including:
+    1. The ``deploy_heroku.py`` script
+    2. The Tabbykitten version
+    3. Docker (macOS, Windows 10*) and Docker Toolbox (Windows 10 Home) methods
+    4. Using Bash and Powershell on Windows
+    5. Using Terminal on macOS (at least test out a fresh install of the npm/pip  dependencies)
+6. Check that the last Travis CI build passed and run the full local test suite (this will include the Selenium tests that are not on Travis)
 7. Shift remaining issues from the Github Milestone
 8. Create and finish the release branch as per git-flow
 9. Ensure the tag is correct (``vX.Y.Z``) and published to GitHub
@@ -105,4 +111,4 @@ Release Checklist
 11. Back-merge ``develop`` to the in-progress feature branches
 12. Push ``master`` to the release pipeline repository
 13. Issue a formal release with change notes on GitHub
-14. Post change notes on the Facebook group
+14. Post change notes on the Facebook page/group

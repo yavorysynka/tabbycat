@@ -27,7 +27,7 @@ urlpatterns = [
     url(r'^create/',
         tournaments.views.CreateTournamentView.as_view(),
         name='tournament-create'),
-    url(r'^load_demo/',
+    url(r'^load-demo/',
         tournaments.views.LoadDemoView.as_view(),
         name='load-demo'),
 
@@ -35,14 +35,15 @@ urlpatterns = [
     url(r'^donations/',
         tournaments.views.DonationsView.as_view(),
         name='donations'),
+    url(r'^style/$',
+        tournaments.views.StyleGuideView.as_view(),
+        name='style-guide'),
 
     # Admin area
     url(r'^jet/',
         include('jet.urls', 'jet')),
     url(r'^database/',
         include(admin.site.urls)),
-    url(r'^admin/(?P<page>[-\w_/]*)$',
-        RedirectView.as_view(url='/database/%(page)s', permanent=True)),
 
     # Accounts
     url(r'^accounts/logout/$',
@@ -52,14 +53,9 @@ urlpatterns = [
     url(r'^accounts/',
         include('django.contrib.auth.urls')),
 
-    # Favicon for old browsers that ignore the head link
+    # Favicon for old browsers that ignore <head> links and always load via root
     url(r'^favicon\.ico$',
         RedirectView.as_view(url='/static/favicon.ico')),
-
-    # Redirect for old-style tournament URLs
-    # Avoid keyword argument name 'tournament_slug' to avoid triggering DebateMiddleware
-    url(r'^t/(?P<slug>[-\w_]+)/(?P<page>[-\w_/]*)$',
-        tournaments.views.TournamentPermanentRedirectView.as_view()),
 
     # Tournament URLs
     url(r'^(?P<tournament_slug>[-\w_]+)/',
@@ -70,7 +66,7 @@ urlpatterns = [
         include('draw.urls_crosst'))
 ]
 
-if settings.DEBUG:  # Only serve debug toolbar when on DEBUG
+if settings.DEBUG and settings.ENABLE_DEBUG_TOOLBAR:  # Only serve debug toolbar when on DEBUG
     import debug_toolbar
     urlpatterns.append(url(r'^__debug__/', include(debug_toolbar.urls)))
 
@@ -84,21 +80,21 @@ if settings.DEBUG:  # Only serve debug toolbar when on DEBUG
 @receiver(user_logged_out)
 def on_user_logged_out(sender, request, **kwargs):
     if kwargs.get('user'):
-        messages.success(request,
+        messages.info(request,
             _("Later, %(username)s — you were logged out!") % {'username': kwargs['user'].username},
             fail_silently=True)
     else: # should never happen, but just in case
-        messages.success(request, _("Later! You were logged out!"), fail_silently=True)
+        messages.info(request, _("Later! You were logged out!"), fail_silently=True)
 
 
 @receiver(user_logged_in)
 def on_user_logged_in(sender, request, **kwargs):
     if kwargs.get('user'):
-        messages.success(request,
+        messages.info(request,
             _("Hi, %(username)s — you just logged in!")  % {'username': kwargs['user'].username},
             fail_silently=True)
     else: # should never happen, but just in case
-        messages.success(request, _("Welcome! You just logged in!"), fail_silently=True)
+        messages.info(request, _("Welcome! You just logged in!"), fail_silently=True)
 
 
 # ==============================================================================

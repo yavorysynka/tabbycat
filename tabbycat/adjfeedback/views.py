@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
@@ -7,6 +8,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
+from django.utils.translation import ungettext
 from django.views.generic.base import TemplateView, View
 from django.views.generic.edit import FormView
 
@@ -19,9 +21,9 @@ from tournaments.mixins import (PublicTournamentPageMixin, SingleObjectByRandomi
                                 SingleObjectFromTournamentMixin, TournamentMixin)
 
 from utils.misc import reverse_tournament
-from utils.mixins import (CacheMixin, JsonDataResponseView, PostOnlyRedirectView,
-                          SuperuserOrTabroomAssistantTemplateResponseMixin, SuperuserRequiredMixin,
-                          VueTableTemplateView)
+from utils.mixins import (CacheMixin, SuperuserOrTabroomAssistantTemplateResponseMixin,
+                          SuperuserRequiredMixin)
+from utils.views import JsonDataResponseView, PostOnlyRedirectView, VueTableTemplateView
 from utils.tables import TabbycatTableBuilder
 
 from .models import AdjudicatorFeedback, AdjudicatorTestScoreHistory
@@ -53,11 +55,8 @@ class GetAdjFeedbackJSON(LoginRequiredMixin, TournamentMixin, JsonDataResponseVi
         return data
 
 
-class FeedbackOverview(LoginRequiredMixin, TournamentMixin, VueTableTemplateView):
-
-    template_name = 'feedback_overview.html'
-    page_title = 'Adjudicator Feedback Summary'
-    page_emoji = '🙅'
+class BaseFeedbackOverview(TournamentMixin, VueTableTemplateView):
+    """ Also inherited by the adjudicator's tab """
 
     def get_adjudicators(self):
         t = self.get_tournament()
@@ -69,14 +68,52 @@ class FeedbackOverview(LoginRequiredMixin, TournamentMixin, VueTableTemplateView
     def get_context_data(self, **kwargs):
         t = self.get_tournament()
         adjudicators = self.get_adjudicators()
-        kwargs['breaking_count'] = adjudicators.filter(breaking=True).count()
         weight = t.current_round.feedback_weight
         scores = [a.weighted_score(weight) for a in adjudicators]
-        kwargs['c_trainees'] = [x < t.pref('adj_min_voting_score') for x in scores].count(True)
 
-        # Adjudicators with scores outside the score range
-        kwargs['nadjs_outside_range'] = [x < t.pref('adj_min_score') or
-                x > t.pref('adj_max_score') for x in scores].count(True)
+        kwargs['c_breaking'] = adjudicators.filter(breaking=True).count()
+
+        ntotal = len(scores)
+        nchairs = t.team_set.count() // (4 if t.pref('teams_in_debate') == 'bp' else 2)
+        ntrainees = [x < t.pref('adj_min_voting_score') for x in scores].count(True)
+        npanellists = ntotal - nchairs - ntrainees
+
+        max_score = int(math.ceil(t.pref('adj_max_score')))
+        min_score = int(math.floor(t.pref('adj_min_score')))
+        range_width = max_score - min_score
+        band_widths = [range_width // 5] * 5
+        for i in range(range_width - sum(band_widths)):
+            band_widths[i] += 1
+        band_widths = [x for x in band_widths if x > 0]
+        bands = []
+        threshold = max_score
+        for width in band_widths:
+            bands.append((threshold - width, threshold))
+            threshold = threshold - width
+        if not threshold == min_score:
+            logger.error("Feedback bands calculation didn't work")
+
+        band_specs = []
+        threshold_classes = ['80', '70', '60', '50', '40'] # CSS suffix
+        for (band_min, band_max), threshold_class in zip(bands, threshold_classes):
+            band_specs.append({
+                'min': band_min, 'max': band_max, 'class': threshold_class,
+                'count': [x >= band_min and x < band_max for x in scores].count(True)
+            })
+        band_specs[0]['count'] += [x == max_score for x in scores].count(True)
+
+        noutside_range = [x < min_score or x > max_score for x in scores].count(True)
+
+        kwargs.update({
+            'c_total': ntotal,
+            'c_chairs': nchairs,
+            'c_panellists': npanellists,
+            'c_trainees': ntrainees,
+            'c_thresholds': band_specs,
+            'nadjs_outside_range': noutside_range,
+            'test_percent': (1.0 - weight) * 100,
+            'feedback_percent': weight * 100,
+        })
 
         return super().get_context_data(**kwargs)
 
@@ -86,11 +123,26 @@ class FeedbackOverview(LoginRequiredMixin, TournamentMixin, VueTableTemplateView
         populate_feedback_scores(adjudicators)
         # Gather stats necessary to construct the graphs
         adjudicators = get_feedback_overview(t, adjudicators)
-        table = FeedbackTableBuilder(view=self, sort_key='Overall Score',
-                                     sort_order='desc')
+        table = FeedbackTableBuilder(view=self, sort_key=self.sort_key,
+                                     sort_order=self.sort_order)
+        table = self.annotate_table(table, adjudicators)
+        return table
+
+
+class FeedbackOverview(LoginRequiredMixin, BaseFeedbackOverview):
+
+    page_title = 'Feedback Overview'
+    page_emoji = '🙅'
+    for_public = False
+    sort_key = 'Score'
+    sort_order = 'desc'
+    template_name = 'feedback_overview.html'
+
+    def annotate_table(self, table, adjudicators):
         table.add_adjudicator_columns(adjudicators, hide_institution=True, subtext='institution')
         table.add_breaking_checkbox(adjudicators)
-        table.add_score_columns(adjudicators)
+        table.add_weighted_score_columns(adjudicators)
+        table.add_test_score_columns(adjudicators, editable=True)
         table.add_feedback_graphs(adjudicators)
         table.add_feedback_link_columns(adjudicators)
         table.add_feedback_misc_columns(adjudicators)
@@ -110,7 +162,7 @@ class FeedbackByTargetView(LoginRequiredMixin, TournamentMixin, VueTableTemplate
         for adj in tournament.adjudicator_set.all():
             count = adj.adjudicatorfeedback_set.count()
             feedback_data.append({
-                'text': "{:d} Feedbacks".format(count),
+                'text': ungettext("%(count)d feedback", "%(count)d feedbacks", count) % {'count': count},
                 'link': reverse_tournament('adjfeedback-view-on-adjudicator', tournament, kwargs={'pk': adj.id}),
             })
         table.add_column("Feedbacks", feedback_data)
@@ -128,7 +180,7 @@ class FeedbackBySourceView(LoginRequiredMixin, TournamentMixin, VueTableTemplate
 
         teams = tournament.team_set.all()
         team_table = TabbycatTableBuilder(
-            view=self, title='From Teams', sort_key='Name')
+            view=self, title='From Teams', sort_key='Team')
         team_table.add_team_columns(teams)
         team_feedback_data = []
         for team in teams:
@@ -136,7 +188,7 @@ class FeedbackBySourceView(LoginRequiredMixin, TournamentMixin, VueTableTemplate
                 source_team__team=team).select_related(
                 'source_team__team').count()
             team_feedback_data.append({
-                'text': "{:d} Feedbacks".format(count),
+                'text': ungettext("%(count)d feedback", "%(count)d feedbacks", count) % {'count': count},
                 'link': reverse_tournament('adjfeedback-view-from-team',
                                            tournament,
                                            kwargs={'pk': team.id}),
@@ -145,7 +197,7 @@ class FeedbackBySourceView(LoginRequiredMixin, TournamentMixin, VueTableTemplate
 
         adjs = tournament.adjudicator_set.all()
         adj_table = TabbycatTableBuilder(
-            view=self, title='From Adjudicators', sort_key='Feedbacks')
+            view=self, title='From Adjudicators', sort_key='Name')
         adj_table.add_adjudicator_columns(adjs)
         adj_feedback_data = []
         for adj in adjs:
@@ -153,7 +205,7 @@ class FeedbackBySourceView(LoginRequiredMixin, TournamentMixin, VueTableTemplate
                 source_adjudicator__adjudicator=adj).select_related(
                 'source_adjudicator__adjudicator').count()
             adj_feedback_data.append({
-                'text': "{:d} Feedbacks".format(count),
+                'text': ungettext("%(count)d feedback", "%(count)d feedbacks", count) % {'count': count},
                 'link': reverse_tournament('adjfeedback-view-from-adjudicator',
                                            tournament,
                                            kwargs={'pk': adj.id}),
@@ -205,7 +257,11 @@ class LatestFeedbackView(FeedbackCardsView):
     template_name = "feedback_latest.html"
 
     def get_feedback_queryset(self):
-        return AdjudicatorFeedback.objects.order_by('-timestamp')[:50].select_related(
+        t = self.get_tournament()
+        return AdjudicatorFeedback.objects.filter(
+            Q(adjudicator__tournament=t) |
+            Q(adjudicator__tournament__isnull=True)).order_by(
+            '-timestamp')[:30].select_related(
             'adjudicator', 'source_adjudicator__adjudicator', 'source_team__team')
 
 
@@ -299,8 +355,11 @@ class BaseAddFeedbackIndexView(TournamentMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         tournament = self.get_tournament()
-        kwargs['adjudicators'] = tournament.adjudicator_set.all() if not tournament.pref('share_adjs') \
-            else Adjudicator.objects.all()
+        if not tournament.pref('share_adjs'):
+            kwargs['adjudicators'] = tournament.adjudicator_set.all().order_by('name')
+        else:
+            Adjudicator.objects.all().order_by('name')
+
         kwargs['teams'] = tournament.team_set.all()
         return super().get_context_data(**kwargs)
 
@@ -319,7 +378,9 @@ class PublicAddFeedbackIndexView(CacheMixin, PublicTournamentPageMixin, BaseAddF
     lists all possible sources; public users should then choose themselves."""
 
     template_name = 'public_add_feedback.html'
-    public_page_preference = 'public_feedback'
+
+    def is_page_enabled(self, tournament):
+        return tournament.pref('participant_feedback') == 'public'
 
 
 class BaseAddFeedbackView(LogActionMixin, SingleObjectFromTournamentMixin, FormView):
@@ -407,7 +468,9 @@ class PublicAddFeedbackView(PublicSubmissionFieldsMixin, PublicTournamentPageMix
 
 class PublicAddFeedbackByRandomisedUrlView(SingleObjectByRandomisedUrlMixin, PublicAddFeedbackView):
     """View for public users to add feedback, where the URL is a randomised one."""
-    public_page_preference = 'public_feedback_randomised'
+
+    def is_page_enabled(self, tournament):
+        return tournament.pref('participant_feedback') == 'private-urls'
 
     def get_success_url(self):
         # Redirect to non-cached page: their original private URL
@@ -423,7 +486,9 @@ class PublicAddFeedbackByRandomisedUrlView(SingleObjectByRandomisedUrlMixin, Pub
 
 class PublicAddFeedbackByIdUrlView(PublicAddFeedbackView):
     """View for public users to add feedback, where the URL is by object ID."""
-    public_page_preference = 'public_feedback'
+
+    def is_page_enabled(self, tournament):
+        return tournament.pref('participant_feedback') == 'public'
 
     def get_success_url(self):
         # Redirect to non-cached page: the public feedback form

@@ -10,7 +10,7 @@ from .models import Round, Tournament
 # ==============================================================================
 
 class TournamentAdmin(admin.ModelAdmin):
-    list_display = ('name', 'slug', 'seq', 'emoji', 'short_name', 'current_round', 'active')
+    list_display = ('name', 'slug', 'seq', 'short_name', 'current_round', 'active')
     ordering = ('seq', )
 
 
@@ -33,38 +33,42 @@ class RoundAdmin(admin.ModelAdmin):
     def mark_as_silent(self, request, queryset):
         updated = queryset.update(silent=True)
         message = ungettext(
-            "%(count)d round object was marked as silent.",
-            "%(count)d round objects were marked as silent.",
+            "%(count)d round was marked as silent.",
+            "%(count)d rounds were marked as silent.",
             updated
         ) % {'count': updated}
         self.message_user(request, message)
+    mark_as_silent.short_description = _("Mark as silent")
 
     def mark_as_not_silent(self, request, queryset):
         updated = queryset.update(silent=False)
         message = ungettext(
-            "%(count)d round object was marked as not silent.",
-            "%(count)d round objects were marked as not silent.",
+            "%(count)d round was marked as not silent.",
+            "%(count)d rounds were marked as not silent.",
             updated
         ) % {'count': updated}
         self.message_user(request, message)
+    mark_as_not_silent.short_description = _("Mark as not silent")
 
     def release_motions(self, request, queryset):
         updated = queryset.update(motions_released=True)
         message = ungettext(
-            "%(count)d round object was marked as motions released.",
-            "%(count)d round objects were marked as motions released.",
+            "%(count)d round was marked as motions released.",
+            "%(count)d rounds were marked as motions released.",
             updated
         ) % {'count': updated}
         self.message_user(request, message)
+    release_motions.short_description = _("Release motions")
 
     def unrelease_motions(self, request, queryset):
         updated = queryset.update(motions_released=False)
         message = ungettext(
-            "%(count)d round object was marked as motions not released.",
-            "%(count)d round objects were marked as motions not released.",
+            "%(count)d round was marked as motions not released.",
+            "%(count)d rounds were marked as motions not released.",
             updated
         ) % {'count': updated}
         self.message_user(request, message)
+    unrelease_motions.short_description = _("Unrelease motions")
 
     for value, verbose_name in Round.STATUS_CHOICES:
 

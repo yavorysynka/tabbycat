@@ -23,7 +23,7 @@ Vue.prototype.$eventHub = eventHub
 // Tournament Homepage
 //------------------------------------------------------------------------------
 
-import TournamentOverviewContainer from  '../js-vue/containers/TournamentOverviewContainer.vue'
+import TournamentOverviewContainer from  '../../tournaments/templates/TournamentOverviewContainer.vue'
 vueComponents['TournamentOverviewContainer'] = TournamentOverviewContainer
 
 //------------------------------------------------------------------------------
@@ -34,19 +34,26 @@ import PrintableBallot from  '../../printing/templates/PrintableBallot.vue'
 vueComponents['PrintableBallot'] = PrintableBallot
 
 //------------------------------------------------------------------------------
+// Other
+//------------------------------------------------------------------------------
+
+import CheckboxTablesContainer from  '../tables/CheckboxTablesContainer.vue'
+vueComponents['CheckboxTablesContainer'] = CheckboxTablesContainer
+
+//------------------------------------------------------------------------------
 // Draw Containers
 //------------------------------------------------------------------------------
 
 import AllocateDivisionsContainer from  '../../divisions/templates/AllocateDivisionsContainer.vue'
 vueComponents['AllocateDivisionsContainer'] = AllocateDivisionsContainer
 
-import EditMatchupsContainer from  '../js-vue/containers/EditMatchupsContainer.vue'
+import EditMatchupsContainer from  '../../draw/templates/EditMatchupsContainer.vue'
 vueComponents['EditMatchupsContainer'] = EditMatchupsContainer
 
-import EditVenuesContainer from  '../js-vue/containers/EditVenuesContainer.vue'
+import EditVenuesContainer from  '../../venues/templates/EditVenuesContainer.vue'
 vueComponents['EditVenuesContainer'] = EditVenuesContainer
 
-import EditAdjudicatorsContainer from  '../js-vue/containers/EditAdjudicatorsContainer.vue'
+import EditAdjudicatorsContainer from  '../../adjallocation/templates/EditAdjudicatorsContainer.vue'
 vueComponents['EditAdjudicatorsContainer'] = EditAdjudicatorsContainer
 
 //------------------------------------------------------------------------------

@@ -5,36 +5,25 @@
 
 # Core
 
-Django==1.11.5
+Django==1.11.7
 django-appconf==1.0.2                   # Helper for handling app configs
-django-dynamic-preferences==1.3         # Settings management
-django-extensions==1.8.1                # For the generate secret command
-django-formtools==2.0                   # Form wizards
+django-dynamic-preferences==1.4.1       # Settings management
+django-extensions==1.9.7                # For the generate secret command
+django-formtools==2.1                   # Form wizards
 django-ipware==1.1.6                    # IP Address logging
 django-jet==1.0.6                       # Admin Backend
 django-gfklookupwidget==1.0.5           # Replaces object_id field with a search link
 munkres==1.0.12                         # Algorithm for adjudicator allocation
+dj-cmd==1.0                             # Provides the dj command alias
+raven==6.3.0                            # Client for Sentry error tracking
+selenium==3.7.0                         # Functional testing (in here for CI tests)
 
 # Database
 
-psycopg2==2.7.1                         # For Django to talk to postgres
-sqlparse==0.2.3                         # Parsing SQL statements
+psycopg2==2.7.3.2                       # For Django to talk to postgres
+sqlparse==0.2.4                         # Parsing SQL statements
 
 # Pipeline
 
-django-gulp==2.5.1                      # Run gulp tasks with dj r/collectstatic
-whitenoise==3.3.0                       # Static file serving
-waitress==1.0.2                         # For web serving
-
-# Development Aids
-
-dj-cmd==1.0                             # Provides the dj command alias
-django-debug-toolbar==1.8               # Debug Toolbar
-six==1.10                               # Python 2/3 compatibility library
-flake8==3.3.0                           # For testing/linting
-flake8-import-order==0.12               # Flake plugin for import order
-flake8-quotes==0.11.0                   # Flake plugin for quotes
-pep8-naming==0.4.1                      # Flake plugin for naming conventions
-selenium==3.4.3                         # Functional testing framework
-chromedriver_installer==0.0.6           # Functional testing Chrome interface
-raven==6.1.0                            # Client for Sentry error tracking
+whitenoise==3.3.1                       # Static file serving
+waitress==1.1.0                         # For web serving

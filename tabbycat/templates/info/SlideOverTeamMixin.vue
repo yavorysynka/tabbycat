@@ -11,7 +11,11 @@ export default {
   computed: {
     breakCategoriesFeature: function() {
       var self = this
-      var winInfo = [{ 'title': self.team.wins + ' wins' }]
+      if (this.roundInfo.teamsInDebate === 'bp') {
+        var resultsInfo = [{ 'title': 'On ' + self.team.points + ' points' }]
+      } else {
+        var resultsInfo = [{ 'title': 'On ' + self.team.wins + ' wins' }]
+      }
       var bcInfo = _.map(this.team.break_categories, function(bc) {
         return {
           'title': self.titleForBC(bc),
@@ -19,16 +23,16 @@ export default {
           'icon': self.iconForBC(bc)
         }
       })
-      return winInfo.concat(bcInfo)
+      return resultsInfo.concat(bcInfo)
     },
     teamInfoFeature: function() {
       var self = this
       var teamInfo = { 'title': this.team.short_name }
       var speakersInfo = _.map(this.team.speakers, function(s) {
         return {
-          'title': s.name + ' (' + s.gender + ')',
+          'title': s.name + self.genderBrackets(s.gender),
           'class': 'gender-display gender-' + s.gender,
-          'icon': 'glyphicon-user'
+          'icon': 'user'
         }
       })
       return _.concat(teamInfo, speakersInfo)
@@ -40,13 +44,18 @@ export default {
   methods: {
     titleForBC: function(bc, wins) {
       if (!_.isUndefined(bc.will_break)) {
-        return bc.will_break.toUpperCase() + ' for ' + bc.name
+        if (bc.will_break !== null) {
+          return bc.will_break.toUpperCase() + ' for ' + bc.name + ' Break'
+        } else {
+          return bc.name + ' Break'
+        }
       }
     },
     iconForBC: function(bc) {
-      if (bc.will_break === 'dead') { return 'glyphicon-remove' } else
-      if (bc.will_break === 'safe') { return 'glyphicon-ok' } else
-      if (bc.will_break === 'live') { return 'glyphicon-star' }
+      if (bc.will_break === 'dead') { return 'x' } else
+      if (bc.will_break === 'safe') { return 'check' } else
+      if (bc.will_break === 'live') { return 'star' }
+      else { return '' }
     },
     formatForSlideOver: function(subject) {
       return {

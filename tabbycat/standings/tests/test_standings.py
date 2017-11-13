@@ -2,12 +2,12 @@ from django.test import TestCase
 
 from ..teams import TeamStandingsGenerator
 
-from tournaments.models import Round, Tournament
-from participants.models import Adjudicator, Institution, Team
-from venues.models import Venue
-from draw.models import Debate, DebateTeam
 from adjallocation.models import DebateAdjudicator
+from draw.models import Debate, DebateTeam
+from participants.models import Adjudicator, Institution, Team
 from results.models import BallotSubmission, TeamScore
+from tournaments.models import Round, Tournament
+from venues.models import Venue
 
 
 # TODO does it ignore unconfirmed ballot submissions?
@@ -73,7 +73,7 @@ class TestBasicStandings(TestCase):
             Venue.objects.create(name="Venue {:d}".format(i), priority=10)
         adjs = list(Adjudicator.objects.all())
         venues = list(Venue.objects.all())
-        sides = [DebateTeam.SIDE_AFFIRMATIVE, DebateTeam.SIDE_NEGATIVE]
+        sides = [DebateTeam.SIDE_AFF, DebateTeam.SIDE_NEG]
 
         for r, debatedict in enumerate(testdata["teamscores"]):
             rd = Round.objects.create(tournament=tournament, seq=r, abbreviation="R{:d}".format(r))

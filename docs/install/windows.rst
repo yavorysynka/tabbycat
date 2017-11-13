@@ -4,19 +4,19 @@
 Installing Locally on Windows
 =============================
 
-.. admonition:: Is this the best install method for you?
+.. admonition:: Is this the best installation method for you?
   :class: attention
 
   In most cases, we recommend doing an :ref:`internet-based installation on Heroku <install-heroku>` instead. If you decide to do a local installation, be sure to read our page on :ref:`local installations <install-local>` to help you understand what's going on, particularly this section: :ref:`install-decision`
 
-  If you just want to quickly set up a copy of Tabbycat to run locally on Windows, we recommend :ref:`installing using Docker<install-docker>`, which is much easier than the process below.
+  If you just want to quickly set up a copy of Tabbycat to run locally on Windows, consider :ref:`installing using Docker<install-docker>`, which is a shorter process than the one below.
 
-  If you have Windows 10 and any experience with Linux, consider installing it on :ref:`Bash for Windows <install-wsl>` instead, which is much easier than the process below, provided that you have experience with Linux.
+  If you have Windows 10 and any experience with Linux, consider installing it on :ref:`Linux on Windows (WSL) <install-wsl>` instead, which is much easier than the process below.
 
 Requisite technical background
 ==============================
 
-You need to be familiar with command-line interfaces to get through this comfortably. While a background in the specific tools (Python, *etc.*) we use will make things easier for you, it's not necessary: we'll talk you through the rest. You just need to be prepared to bear with us. It'll take a while the first time, but it gets easier after that.
+You need to be familiar with command-line interfaces to get through this comfortably. While a background in the specific tools Tabbycat uses (Python, PostgreSQL, *etc.*) will make things easier, it's not necessary: we'll talk you through the rest. You just need to be prepared to bear with us. It'll take a while the first time, but it gets easier after that.
 
 In these instructions, we'll use **Windows PowerShell**, a command-line interface that comes with every installation of Windows (since XP). The easiest way to find it (on Windows 7 and later) is to search for it in your Start Menu. Every line in the instructions that begins with ``>`` is a command that you need to run in PowerShell, but without the ``>``: that sign is a convention used in instructions to make it clear that it is a command you need to run.
 
@@ -36,7 +36,7 @@ First, you need to install all of the software on which Tabbycat depends, if you
 ------------
   *Python is a popular programming language, and the language in which the core of Tabbycat is coded.*
 
-Download and install Python 3.5 from the `Python website <https://www.python.org/>`_.
+Download and install the latest version of Python 3.5 from the `Python website <https://www.python.org/downloads/>`_.
 In the installer, check the box to add Python to your PATH (see box below).
 
 .. warning:: The 64-bit version of Python 3.6 currently doesn't work with PostgreSQL 9.6, because of a `bug in Python <http://bugs.python.org/issue28680>`_ affecting `win-psycopg <http://www.stickpeople.com/projects/python/win-psycopg/>`_. If you're using 64-bit Python, you should use Python 3.5 until the Python 3.6.1 is released.
@@ -96,12 +96,12 @@ requires Git to work. So, install the latest version for Windows from the
 -----------------
   *Node.js is a JavaScript runtime.*
 
-Download and run the `node.js Windows Installer (.msi) <https://nodejs.org/en/download/>`_
+Download and run the node.js 6 Installer (.msi) for either `x64 versions  <https://nodejs.org/dist/latest-v6.x/node-v6.11.5-x64.msi>`_ of Windows or `x86 versions <https://nodejs.org/dist/latest-v6.x/node-v6.11.5-x86.msi>`_.
 
 2. Get the source code
 ======================
 
-1. `Go to the page for our latest release <https://github.com/czlee/tabbycat/releases/latest>`_.
+1. `Go to the page for our latest release <https://github.com/TabbycatDebate/tabbycat/releases/latest>`_.
 2. Download the zip file.
 3. Extract all files in it to a folder of your choice.
 
@@ -217,13 +217,13 @@ Almost there!
 
   ::
 
-    > waitress-serve wsgi:application
+    > dj runserver
 
   It should show something like this::
 
-    serving on http://0.0.0.0:8080
+    Starting development server on http://127.0.0.1:8000
 
-8. Open your browser and go to the URL printed above. (In the above example, it's http://0.0.0.0:8080/.) It should look something like this:
+8. Open your browser and go to the URL printed above. (In the above example, it's http://127.0.0.1:8000/). It should look something like this:
 
   .. image:: images/tabbycat-bare-windows.png
 
@@ -239,4 +239,4 @@ To start your Tabbycat instance up again next time you use your computer, open a
     > Set-Location C:\Users\myusername\Documents\GitHub\tabbycat # or wherever your installation is
     > .\venv\Scripts\activate
     > cd tabbycat
-    > waitress-serve wsgi:application
+    > dj runserver

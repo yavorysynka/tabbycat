@@ -23,9 +23,9 @@ TIME_ZONE = 'Australia/Melbourne'
 LANGUAGE_CODE = 'en'
 USE_I18N = True
 
-TABBYCAT_VERSION = '1.4.6'
-TABBYCAT_CODENAME = 'Havana Brown'
-READTHEDOCS_VERSION = 'v1.4.6'
+TABBYCAT_VERSION = '2.0.0'
+TABBYCAT_CODENAME = 'Iberian Lynx'
+READTHEDOCS_VERSION = 'v2.0.0'
 
 LOCALE_PATHS = [
     os.path.join(BASE_DIR, 'locale'),
@@ -58,10 +58,12 @@ TABBYCAT_APPS = ('actionlog',
                  'options',
                  'participants',
                  'printing',
+                 'privateurls',
                  'results',
                  'tournaments',
                  'venues',
                  'utils',
+                 'users',
                  'standings',
                  'importer', )
 
@@ -71,7 +73,6 @@ INSTALLED_APPS = (
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
-    'django_gulp',  # Asset compilation; must be before staticfiles
     'whitenoise.runserver_nostatic',  # Use whitenoise with runserver
     'raven.contrib.django.raven_compat',  # Client for Sentry error tracking
     'django.contrib.staticfiles',
@@ -156,11 +157,6 @@ STATICFILES_FINDERS = (
 # Whitenoise Gzipping and unique names
 STATICFILES_STORAGE = 'utils.misc.SquashedWhitenoiseStorage'
 
-# When running server side always use build not watch
-GULP_PRODUCTION_COMMAND = "export NODE_ENV=production && npm run gulp build -- --production"
-GULP_DEVELOP_COMMAND = "npm run gulp build -- --development"
-
-
 # ==============================================================================
 # Logging
 # ==============================================================================
@@ -179,6 +175,12 @@ if os.environ.get('SENDGRID_USERNAME', ''):
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'filters': {
+        'except_importer_base': {
+            '()': 'utils.logging.ExceptFilter',
+            'name': 'importer.base',
+        },
+    },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
@@ -187,6 +189,7 @@ LOGGING = {
         'sentry': {
             'level': 'WARNING',
             'class': 'raven.contrib.django.raven_compat.handlers.SentryHandler',
+            'filters': ['except_importer_base'],
         },
     },
     'loggers': {
@@ -333,6 +336,12 @@ if os.environ.get('TRAVIS', '') == 'true':
 # Local Overrides and Docker
 # ==============================================================================
 
+# Hide league-related configuration options unless explicitly enabled
+LEAGUE = bool(int(os.environ['LEAGUE'])) if 'LEAGUE' in os.environ else False
+
+# Must default to false; potentially overriden in local_settings
+ENABLE_DEBUG_TOOLBAR = False
+
 if os.environ.get('IN_DOCKER', '') and bool(int(os.environ['IN_DOCKER'])):
     DEBUG = True # Just to be sure
     ALLOWED_HOSTS = ["*"]
@@ -351,6 +360,6 @@ else:
         LOCAL_SETTINGS
     except NameError:
         try:
-            from local_settings import *   # noqa: F401, F403
+            from local_settings import *   # noqa
         except ImportError:
             pass

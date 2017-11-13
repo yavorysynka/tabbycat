@@ -1,7 +1,7 @@
 {
     "name": "Tabbycat (Tabbykitten Edition)",
     "description": "Debating tournament tabulation software for two-team parliamentary formats",
-    "repository": "https://github.com/czlee/tabbycat",
+    "repository": "https://github.com/TabbycatDebate/tabbycat",
     "keywords": ["debate", "debating"],
     "website": "https://tabbycat.readthedocs.io/",
     "addons": [
@@ -15,6 +15,10 @@
         "TAB_DIRECTOR_EMAIL": {
           "description": "Your email address. Tabbycat's developers may need to contact you to help diagnose any unexpected errors.",
           "value": ""
+        },
+        "DISABLE_COLLECTSTATIC": {
+          "description": "Leave this as-is.",
+          "value": "1"
         }
     },
     "buildpacks": [

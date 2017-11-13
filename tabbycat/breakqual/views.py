@@ -1,12 +1,18 @@
+import json
+import logging
+
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.http import JsonResponse
 from django.utils.translation import ugettext as _
-from django.views.generic import FormView, TemplateView
+from django.views.generic import FormView, TemplateView, View
 
 from actionlog.mixins import LogActionMixin
 from actionlog.models import ActionLogEntry
+from participants.models import Team
 from utils.misc import reverse_tournament
-from utils.mixins import CacheMixin, PostOnlyRedirectView, SuperuserRequiredMixin, VueTableTemplateView
+from utils.mixins import CacheMixin, SuperuserRequiredMixin
+from utils.views import PostOnlyRedirectView, VueTableTemplateView
 from utils.tables import TabbycatTableBuilder
 from tournaments.mixins import PublicTournamentPageMixin, SingleObjectFromTournamentMixin, TournamentMixin
 
@@ -15,6 +21,8 @@ from .utils import breakcategories_with_counts, get_breaking_teams
 from .generator import BreakGenerator
 from .models import BreakCategory, BreakingTeam
 from . import forms
+
+logger = logging.getLogger(__name__)
 
 
 class PublicBreakIndexView(PublicTournamentPageMixin, CacheMixin, TemplateView):
@@ -33,6 +41,10 @@ class AdminBreakIndexView(SuperuserRequiredMixin, TournamentMixin, TemplateView)
         return super().get_context_data(**kwargs)
 
 
+# ==============================================================================
+# Teams
+# ==============================================================================
+
 class BaseBreakingTeamsView(SingleObjectFromTournamentMixin, VueTableTemplateView):
 
     model = BreakCategory
@@ -46,13 +58,13 @@ class BaseBreakingTeamsView(SingleObjectFromTournamentMixin, VueTableTemplateVie
         self.standings = self.get_standings()
         table = TabbycatTableBuilder(view=self, title=self.object.name, sort_key='Rk')
         table.add_ranking_columns(self.standings)
-        table.add_column("Break", [tsi.break_rank for tsi in self.standings])
+        table.add_column(_("Break"), [tsi.break_rank for tsi in self.standings])
         table.add_team_columns([tsi.team for tsi in self.standings])
         table.add_metric_columns(self.standings)
         return table
 
     def get_page_title(self):
-        return self.object.name + " Break"
+        return _("%(category)s Break") % {'category': self.object.name,}
 
     def get(self, request, *args, **kwargs):
         self.object = self.get_object()
@@ -117,8 +129,8 @@ class BreakingTeamsFormView(GenerateBreakMixin, LogActionMixin, SuperuserRequire
 
     def get_table(self):
         table = super().get_table()  # as for public view, but add some more columns
-        table.add_column("Eligible for", [", ".join(bc.name for bc in tsi.team.break_categories.all()) for tsi in self.standings])
-        table.add_column("Edit Remark", [str(self.form.get_remark_field(tsi.team)) for tsi in self.standings])
+        table.add_column(_("Eligible for"), [", ".join(bc.name for bc in tsi.team.break_categories.all()) for tsi in self.standings])
+        table.add_column(_("Edit Remark"), [str(self.form.get_remark_field(tsi.team)) for tsi in self.standings])
         return table
 
     def get_form_kwargs(self):
@@ -144,7 +156,7 @@ class BreakingTeamsFormView(GenerateBreakMixin, LogActionMixin, SuperuserRequire
                         {'category': self.object.name})
 
         else:
-            messages.success(self.request, "Changes to breaking team remarks saved.")
+            messages.success(self.request, _("Changes to breaking team remarks saved."))
 
         return super().form_valid(form)
 
@@ -175,13 +187,17 @@ class GenerateAllBreaksView(GenerateBreakMixin, LogActionMixin, TournamentMixin,
         return super().post(request, *args, **kwargs)
 
 
+# ==============================================================================
+# Adjudicators
+# ==============================================================================
+
 class BaseBreakingAdjudicatorsView(TournamentMixin, VueTableTemplateView):
 
-    page_title = 'Breaking Adjudicators'
+    page_title = _("Breaking Adjudicators")
     page_emoji = '🎉'
 
     def get_table(self):
-        table = TabbycatTableBuilder(view=self)
+        table = TabbycatTableBuilder(view=self, sort_key='name')
         table.add_adjudicator_columns(self.get_tournament().adjudicator_set.filter(breaking=True))
         return table
 
@@ -194,21 +210,67 @@ class PublicBreakingAdjudicatorsView(PublicTournamentPageMixin, CacheMixin, Base
     public_page_preference = 'public_breaking_adjs'
 
 
-class EditEligibilityFormView(LogActionMixin, SuperuserRequiredMixin, TournamentMixin, FormView):
+# ==============================================================================
+# Eligibility and categories
+# ==============================================================================
 
+class EditTeamEligibilityView(SuperuserRequiredMixin, TournamentMixin, VueTableTemplateView):
+
+    template_name = 'edit_break_eligibility.html'
+    page_title = _("Break Eligibility")
+    page_emoji = '🍯'
+
+    def get_table(self):
+        t = self.get_tournament()
+        table = TabbycatTableBuilder(view=self, sort_key='team')
+        teams = t.team_set.all().select_related(
+            'institution').prefetch_related('break_categories', 'speaker_set')
+        table.add_team_columns(teams)
+        break_categories = t.breakcategory_set.all()
+
+        for bc in break_categories:
+            table.add_column(bc.name, [{
+                'component': 'check-cell',
+                'checked': True if bc in team.break_categories.all() else False,
+                'id': team.id,
+                'type': bc.id
+            } for team in teams])
+        return table
+
+    def get_context_data(self, **kwargs):
+        break_categories = self.get_tournament().breakcategory_set.all()
+        json_categories = [bc.serialize for bc in break_categories]
+        kwargs["break_categories"] = json.dumps(json_categories)
+        kwargs["break_categories_length"] = break_categories.count()
+        return super().get_context_data(**kwargs)
+
+
+class UpdateEligibilityEditView(LogActionMixin, SuperuserRequiredMixin, View):
     action_log_type = ActionLogEntry.ACTION_TYPE_BREAK_ELIGIBILITY_EDIT
-    form_class = forms.BreakEligibilityForm
-    template_name = 'edit_eligibility.html'
 
-    def get_success_url(self):
-        return reverse_tournament('breakqual-index', self.get_tournament())
+    def set_break_elibility(self, team, sent_status):
+        category_id = sent_status['type']
+        marked_eligible = team.break_categories.filter(pk=category_id).exists()
+        if sent_status['checked'] and not marked_eligible:
+            team.break_categories.add(category_id)
+            team.save()
+        elif not sent_status['checked'] and marked_eligible:
+            team.break_categories.remove(category_id)
+            team.save()
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs['tournament'] = self.get_tournament()
-        return kwargs
+    def post(self, request, *args, **kwargs):
+        body = self.request.body.decode('utf-8')
+        posted_info = json.loads(body)
 
-    def form_valid(self, form):
-        form.save()
-        messages.success(self.request, "Break eligibility saved.")
-        return super().form_valid(form)
+        try:
+            team_ids = [int(key) for key in posted_info.keys()]
+            teams = Team.objects.prefetch_related('break_categories').in_bulk(team_ids)
+            for team_id, team in teams.items():
+                self.set_break_elibility(team, posted_info[str(team_id)])
+            self.log_action()
+        except:
+            message = "Error handling eligiblity updates"
+            logger.exception(message)
+            return JsonResponse({'status': 'false', 'message': message}, status=500)
+
+        return JsonResponse(json.dumps(True), safe=False)

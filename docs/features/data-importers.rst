@@ -6,7 +6,7 @@ Tournament Data Importers
 
 This page describes how to write your own tournament data importer. It is aimed at an audience that is familiar with programming in Python, and may be willing to get their head around the Django model if necessary.
 
-The **tournament data importer** is the class that imports data from one or more files (usually CSV files) into the database. A base class ``BaseTournamentDataImporter`` is in `importer/base.py <https://github.com/czlee/tabbycat/blob/develop/importer/base.py>`_. An example of a data importer is in `importer/anorak.py <https://github.com/czlee/tabbycat/blob/develop/importer/anorak.py>`_.
+The **tournament data importer** is the class that imports data from one or more files (usually CSV files) into the database. A base class ``BaseTournamentDataImporter`` is in `importer/base.py <https://github.com/TabbycatDebate/tabbycat/blob/develop/importer/base.py>`_. An example of a data importer is in `importer/anorak.py <https://github.com/TabbycatDebate/tabbycat/blob/develop/importer/anorak.py>`_.
 
 .. todo:: This page is incomplete. If you're finding this information insufficient, please contact Chuan-Zheng using the contact details in the :ref:`authors` section.
 
@@ -163,6 +163,8 @@ transformation function was provided, as summarised in the following table:
 +-------------------------+----------------+-----------------------------------+
 
 .. tip::
+
+  .. rst-class:: spaced-list
 
   - If a transformation isn't an existing method, you might find
     `lambda functions <https://docs.python.org/2/tutorial/controlflow.html#lambda-expressions>`_

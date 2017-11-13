@@ -3,9 +3,10 @@ import json
 import logging
 
 from django.core.urlresolvers import reverse
-from django.test import Client, modify_settings, override_settings, TestCase
+from django.test import Client, modify_settings, override_settings, tag, TestCase
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 from selenium.webdriver.chrome.webdriver import WebDriver
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
 from draw.models import DebateTeam
 from tournaments.models import Tournament
@@ -70,12 +71,53 @@ class TournamentTestsMixin:
         return self.client.get(self.get_view_url(self.view_name), kwargs=self.get_url_kwargs())
 
 
+class ConditionalTournamentTestsMixin(TournamentTestsMixin):
+    """Mixin that provides tests for testing a view class that is conditionally
+    shown depending on whether a user preference is set.
+
+    Subclasses must inherit from TestCase separately. This can't be a TestCase
+    subclass, because it provides tests which would be run on the base class."""
+
+    view_toggle = None
+
+    def validate_response(self, response):
+        raise NotImplementedError
+
+    def test_set_preference(self):
+        # Check a page IS resolving when the preference is set
+        self.t.preferences[self.view_toggle] = True
+        response = self.get_response()
+
+        # 200 OK should be issued if setting is not enabled
+        self.assertEqual(response.status_code, 200)
+        self.validate_response(response)
+
+    def test_unset_preference(self):
+        # Check a page is not resolving when the preference is not set
+        self.t.preferences[self.view_toggle] = False
+
+        with self.assertLogs('tournaments.mixins', logging.WARNING):
+            response = self.get_response()
+
+        # 302 redirect should be issued if setting is not enabled
+        self.assertEqual(response.status_code, 302)
+
+
+class ConditionalTournamentViewBasicCheckMixin(ConditionalTournamentTestsMixin):
+    """Simply checks the view and only fails if an error is thrown"""
+
+    def validate_response(self, response):
+        return True
+
+
 # Remove whitenoise middleware as it won't resolve on Travis
 @override_settings(STATICFILES_STORAGE='django.contrib.staticfiles.storage.StaticFilesStorage')
 @modify_settings(MIDDLEWARE={'remove': ['whitenoise.middleware.WhiteNoiseMiddleware']})
 class TournamentTestCase(TournamentTestsMixin, TestCase):
     """Extension of django.test.TestCase that provides methods for testing a
-    populated view on a tournament, with a prepopulated database."""
+    populated view on a tournament, with a prepopulated database.
+    Selenium tests can't inherit from this otherwise fixtures wont be loaded;
+    as per https://stackoverflow.com/questions/12041315/how-to-have-django-test-case-and-selenium-server-use-same-database"""
     pass
 
 
@@ -86,8 +128,10 @@ class TableViewTestsMixin:
     # This can't be a TestCase subclass, because it is inherited by
     # ConditionalTableViewTestsMixin, which provides tests.
 
-    def validate_table_data(self, r):
+    def validate_response(self, response):
+        self.validate_table_data(response)
 
+    def validate_table_data(self, r):
         if 'tableData' in r.context and self.table_data():
             data = len(json.loads(r.context['tableData']))
             self.assertEqual(self.table_data(), data)
@@ -110,33 +154,9 @@ class TableViewTestsMixin:
         return False
 
 
-class ConditionalTableViewTestsMixin(TableViewTestsMixin, TournamentTestsMixin):
-    """Mixin that provides tests for testing a view class that is conditionally
-    shown depending on whether a user preference is set.
-
-    Subclasses must inherit from TestCase separately. This can't be a TestCase
-    subclass, because it provides tests which would be run on the base class."""
-
-    view_toggle = None
-
-    def test_set_preference(self):
-        # Check a page IS resolving when the preference is set
-        self.t.preferences[self.view_toggle] = True
-        response = self.get_response()
-
-        # 200 OK should be issued if setting is not enabled
-        self.assertEqual(response.status_code, 200)
-        self.validate_table_data(response)
-
-    def test_unset_preference(self):
-        # Check a page is not resolving when the preference is not set
-        self.t.preferences[self.view_toggle] = False
-
-        with self.assertLogs('tournaments.mixins', logging.WARNING):
-            response = self.get_response()
-
-        # 302 redirect should be issued if setting is not enabled
-        self.assertEqual(response.status_code, 302)
+class ConditionalTableViewTestsMixin(TableViewTestsMixin, ConditionalTournamentTestsMixin):
+    """Combination of TableViewTestsMixin and ConditionalTournamentTestsMixin,
+    for convenience."""
 
 
 class BaseDebateTestCase(TestCase):
@@ -168,6 +188,7 @@ class BaseDebateTestCase(TestCase):
         self.t.delete()
 
 
+@tag('selenium') # Exclude from Travis
 class SeleniumTestCase(StaticLiveServerTestCase):
     """Used to verify rendered html and javascript functionality on the site as
     rendered. Opens a Chrome window and checks for JS/DOM state on the fixture
@@ -176,8 +197,17 @@ class SeleniumTestCase(StaticLiveServerTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.selenium = WebDriver()
+        # Capabilities provide access to JS console
+        capabilities = DesiredCapabilities.CHROME
+        capabilities['loggingPrefs'] = {'browser':'ALL'}
+        cls.selenium = WebDriver(desired_capabilities=capabilities)
         cls.selenium.implicitly_wait(10)
+
+    def test_no_js_errors(self):
+        # Check console for errors; fail the test if so
+        for entry in self.selenium.get_log('browser'):
+            if entry['level'] == 'SEVERE':
+                raise RuntimeError('Page loaded in selenium has a JS error')
 
     @classmethod
     def tearDownClass(cls):
@@ -185,7 +215,9 @@ class SeleniumTestCase(StaticLiveServerTestCase):
         super().tearDownClass()
 
 
-class SeleniumTournamentTestCase(TournamentTestCase, SeleniumTestCase):
+@override_settings(STATICFILES_STORAGE='django.contrib.staticfiles.storage.StaticFilesStorage')
+@modify_settings(MIDDLEWARE={'remove': ['whitenoise.middleware.WhiteNoiseMiddleware']})
+class SeleniumTournamentTestCase(TournamentTestsMixin, SeleniumTestCase):
     """ Basically reimplementing BaseTournamentTest; but use cls not self """
 
     set_preferences = None

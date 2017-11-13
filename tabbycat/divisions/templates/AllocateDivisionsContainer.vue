@@ -1,5 +1,5 @@
 <template>
-  <div class="col-md-12 draw-container">
+  <div class="draw-container">
 
     <div class="row divisions-holder">
       <div v-for="division in divisionsOrderedByName" :key="division.id"
@@ -15,7 +15,7 @@
 
     <unallocated-items-container>
       <div v-for="team in unallocatedTeams">
-        <draggable-team :team="team"></draggable-team>
+        <draggable-team :team="team" :round-info="roundInfo"></draggable-team>
       </div>
     </unallocated-items-container>
 
@@ -24,9 +24,9 @@
 
 <script>
 import DivisionDroppable from  './DivisionDroppable.vue'
-import UnallocatedItemsContainer from  '../../templates/js-vue/containers/UnallocatedItemsContainer.vue'
-import DraggableTeam from  '../../templates/js-vue/draganddrops/DraggableTeam.vue'
-import AjaxMixin from '../../templates/js-vue/ajax/AjaxMixin.vue'
+import UnallocatedItemsContainer from  '../../templates/draganddrops/UnallocatedItemsContainer.vue'
+import DraggableTeam from  '../../templates/draganddrops/DraggableTeam.vue'
+import AjaxMixin from '../../templates/ajax/AjaxMixin.vue'
 import _ from 'lodash'
 
 export default {
@@ -41,18 +41,18 @@ export default {
   },
   computed: {
     teamsById: function() {
-      return _.keyBy(this.teams, 'id')
+      return _.keyBy(this.debateTeams, 'id')
     },
     divisionsOrderedByName: function() {
       return _.orderBy(this.divisions, 'name')
     },
     unallocatedTeams: function() {
-      return _.filter(this.teams, { 'division': null })
+      return _.filter(this.debateTeams, { 'division': null })
     }
   },
   methods: {
     teamsInDivision: function(divisionId) {
-      return _.filter(this.teams, { 'division': divisionId })
+      return _.filter(this.debateTeams, { 'division': divisionId })
     },
     moveToDivision(payload, assignedId) {
       this.teamsById[payload.team].division = assignedId
