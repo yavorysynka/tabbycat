@@ -30,8 +30,10 @@
     }
   },
   "buildpacks": [
+    {"url": "https://github.com/heroku/heroku-buildpack-nginx.git"},
     {"url": "heroku/nodejs"},
     {"url": "heroku/python"}
   ],
+  "stack": "heroku-16",
   "success_url": "/start/"
 }
