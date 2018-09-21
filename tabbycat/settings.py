@@ -252,8 +252,8 @@ for app in TABBYCAT_APPS:
         'handlers': ['console', 'sentry'],
         'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
     }
-# ==============================================================================
 
+# ==============================================================================
 # Scout
 # ==============================================================================
 
@@ -408,6 +408,8 @@ if os.environ.get('REDIS_URL', ''):
 TABBYKITTEN = True
 if TABBYKITTEN:
     TABBYCAT_VERSION += "k"
+    # Can't use cache backend without redis
+    SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"
 
 # ==============================================================================
 # Travis CI
