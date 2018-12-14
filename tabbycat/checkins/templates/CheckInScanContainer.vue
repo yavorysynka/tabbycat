@@ -21,6 +21,10 @@
           </button>
         </div>
       </div>
+      <div id="cameraSelect">
+        <select id="deviceSelection">
+        </select>
+      </div>
       <div id="scanCanvas" v-if="liveScanning"
            class="scan-container ml-auto mt-3 mr-auto">
       </div>
@@ -48,6 +52,9 @@ export default {
       sound: false,
       sockets: ['checkins'],
     }
+  },
+  mounted: function () {
+    this.initCameraSelection()
   },
   props: {
     tournamentSlug: String,
@@ -125,12 +132,15 @@ export default {
     },
     streamScan: function () {
       const self = this
+      var $deviceSelection = document.getElementById('deviceSelection')
+      var deviceId = $deviceSelection.options[$deviceSelection.selectedIndex].value
 
       Quagga.init({
         inputStream: {
           name: 'Live',
           type: 'LiveStream',
           target: document.querySelector('#scanCanvas'), // Or '#yourElement' (optional)
+          deviceId: deviceId,
         },
         decoder: {
           readers: ['code_128_reader', 'code_39_reader'],
@@ -195,6 +205,24 @@ export default {
           }
         }
       })
+    },
+    initCameraSelection: function () {
+      var streamLabel = Quagga.CameraAccess.getActiveStreamLabel()
+
+      return Quagga.CameraAccess.enumerateVideoDevices()
+        .then(function (devices) {
+          var $deviceSelection = document.getElementById('deviceSelection')
+          while ($deviceSelection.firstChild) {
+            $deviceSelection.removeChild($deviceSelection.firstChild)
+          }
+          devices.forEach(function (device) {
+            var $option = document.createElement('option')
+            $option.value = device.deviceId || device.id
+            $option.appendChild(document.createTextNode(device.label || device.deviceId || device.id))
+            $option.selected = streamLabel === device.label
+            $deviceSelection.appendChild($option)
+          })
+        })
     },
   },
   watch: {
