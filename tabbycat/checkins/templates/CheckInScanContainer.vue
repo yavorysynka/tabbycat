@@ -134,7 +134,7 @@ export default {
           target: document.querySelector('#scanCanvas'), // Or '#yourElement' (optional)
         },
         decoder: {
-          readers: ['code_128_reader'],
+          readers: ['code_128_reader', 'code_39_reader'],
         },
       }, (err) => {
         if (err) {
@@ -183,9 +183,9 @@ export default {
       Quagga.onDetected((result) => {
         const code = result.codeResult.code
         // Check length
-        if (code.length === 5) {
+        if (code.length >= 4) {
           // Check numeric
-          if (code.match(/^[0-9]+$/) !== null) {
+          if (code.match(/^[0-9A-Za-z-]+$/) !== null) {
             // Check not already posted
             if (!_.includes(self.scannedResults, code)) {
               self.checkInIdentifier(code)
