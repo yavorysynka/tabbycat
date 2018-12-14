@@ -133,14 +133,16 @@ export default {
     streamScan: function () {
       const self = this
       var $deviceSelection = document.getElementById('deviceSelection')
-      var deviceId = $deviceSelection.options[$deviceSelection.selectedIndex].value
+      const deviceIdValue = $deviceSelection.options[$deviceSelection.selectedIndex].value
 
       Quagga.init({
         inputStream: {
           name: 'Live',
           type: 'LiveStream',
           target: document.querySelector('#scanCanvas'), // Or '#yourElement' (optional)
-          deviceId: deviceId,
+          constraints: {
+            deviceId: deviceIdValue,
+          },
         },
         decoder: {
           readers: ['code_128_reader', 'code_39_reader'],
