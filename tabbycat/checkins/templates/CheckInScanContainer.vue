@@ -3,8 +3,7 @@
   <div class="list-group mt-3">
 
     <div class="list-group-item" v-if="!liveScanning">
-      <input v-model="barcode" type="number" pattern="[0-9]*" autofocus
-             inputmode="numeric" step="1" class="form-control" ref="entry" >
+      <input v-model="barcode" type="text" autofocus class="form-control" ref="entry">
     </div>
     <div class="list-group-item pb-3">
       <div class="d-flex">

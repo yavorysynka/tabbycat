@@ -23,12 +23,12 @@
 
   {% for identifier in identifiers %}
 
-    {% if forloop.first or forloop.counter0|divisibleby:24 %}
+    {% if forloop.first or forloop.counter0|divisibleby:18 %}
       {% if not forloop.first %}</div></div></div>{% endif %}
       <div class="db-page-holder"><div class="db-page p-4"><div class="row">
     {% endif %}
 
-    <div class="col-3 p-2">
+    <div class="col-4 p-2">
       <div class="card text-center">
         <div class="card-body p-0">
           <svg id="{{ identifier.barcode }}" title="{{ identifier.owner }}"
