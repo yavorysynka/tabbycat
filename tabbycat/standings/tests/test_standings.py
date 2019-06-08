@@ -46,6 +46,19 @@ class TestTrivialStandings(TestCase):
         self.dt1.delete()
         self.tournament.delete()
 
+    def test_nothing(self):
+        # just test that it does not crash
+        generator = TeamStandingsGenerator((), ())
+        generator.generate(self.tournament.team_set.all())
+
+    def test_no_metrics(self):
+        generator = TeamStandingsGenerator((), ('rank', 'subrank'))
+        standings = generator.generate(self.tournament.team_set.all())
+        self.assertEqual(standings.get_standing(self.team1).rankings['rank'], (1, True))
+        self.assertEqual(standings.get_standing(self.team2).rankings['rank'], (1, True))
+        self.assertEqual(standings.get_standing(self.team1).rankings['subrank'], (1, True))
+        self.assertEqual(standings.get_standing(self.team2).rankings['subrank'], (1, True))
+
     def test_no_rankings(self):
         generator = TeamStandingsGenerator(('points',), ())
         standings = generator.generate(self.tournament.team_set.all())
@@ -75,6 +88,8 @@ class TestTrivialStandings(TestCase):
         self.assertEqual(standings.get_standing(self.team2).metrics['points'], 0)
         self.assertEqual(standings.get_standing(self.team1).metrics['speaks_sum'], 263)
         self.assertEqual(standings.get_standing(self.team2).metrics['speaks_sum'], 261)
+        self.assertEqual(standings.get_standing(self.team1).rankings['rank'], (1, False))
+        self.assertEqual(standings.get_standing(self.team2).rankings['rank'], (2, False))
         self.assertEqual(standings.get_standing(self.team1).rankings['subrank'], (1, False))
         self.assertEqual(standings.get_standing(self.team2).rankings['subrank'], (1, False))
 
